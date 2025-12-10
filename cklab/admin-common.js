@@ -56,7 +56,10 @@ function renderSidebar() {
 
 function adminLogout() {
     if(confirm('ยืนยันออกจากระบบ?')) {
+        // 1. ล้าง Session
         DB.clearSession();
-        window.location.href = 'index.html'; // กลับไปหน้าแรกของ User
+        
+        // 2. ✅ เปลี่ยนให้ไปหน้า Admin Login แทน index.html
+        window.location.href = 'admin-login.html'; 
     }
-}   
+}

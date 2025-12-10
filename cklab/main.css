@@ -1,93 +1,275 @@
-/* main.css */
+/* main.css - Final Version */
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&display=swap');
 
-/* --- GLOBAL STYLES --- */
-body { 
-    background-color: #f4f6f9; 
-    font-family: 'Sarabun', sans-serif; /* แนะนำให้ import Google Font ใน HTML ด้วย */
-    color: #333;
+:root {
+    --primary: #2c3e50;    /* กรมท่าเข้ม */
+    --accent: #003366;     /* น้ำเงินมหาลัย */
+    --gray-light: #f8f9fa; /* พื้นหลัง */
+    --border: #e9ecef;     
+    --text: #495057;
+    --success: #28a745;    /* สีเขียวสถานะ */
 }
 
-h1, h2, h3, h4, h5, h6 {
-    font-weight: 600;
+body {
+    background-color: var(--gray-light);
+    font-family: 'Sarabun', sans-serif;
+    color: var(--text);
+    font-weight: 300;
 }
 
-/* --- COMPONENT: PC BOX (ใช้ใน Admin Monitor & User Map) --- */
-.pc-box { 
-    height: 120px; 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center; 
-    align-items: center; 
-    border-radius: 10px; 
-    color: white; 
-    cursor: pointer; 
-    transition: transform 0.2s, box-shadow 0.2s; 
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-    border: none;
-    width: 100%;
+/* --- KIOSK CARD --- */
+.kiosk-card {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    max-width: 500px;
+    margin: 0 auto;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.pc-box:hover { 
-    transform: translateY(-5px); 
-    box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+.kiosk-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0, 51, 102, 0.08);
 }
 
-.pc-box:disabled, .pc-box.disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-    transform: none;
+.kiosk-header {
+    padding: 30px 30px 20px;
+    text-align: center;
 }
 
-/* Status Colors */
-.status-available { background-color: #198754; } /* สีเขียว */
-.status-in_use { background-color: #dc3545; animation: pulse 2s infinite; } /* สีแดง */
-.status-maintenance { background-color: #6c757d; } /* สีเทา */
-.status-reserved { background-color: #ffc107; color: black; } /* สีเหลือง */
-
-/* Animation for In-use */
-@keyframes pulse { 
-    0% { opacity: 1; } 
-    50% { opacity: 0.85; } 
-    100% { opacity: 1; } 
-}
-
-/* --- COMPONENT: KIOSK CARD (ใช้ใน User Flow) --- */
-.kiosk-card { 
-    max-width: 500px; 
-    margin: 40px auto; 
-    border-radius: 12px; 
-    border: none; 
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-    overflow: hidden; 
-    background: white;
-}
-
-.kiosk-header { 
-    background: #0d6efd; 
-    color: white; 
-    padding: 25px; 
-    text-align: center; 
+.university-logo {
+    max-width: 90px;
+    margin-bottom: 15px;
 }
 
 .kiosk-body {
-    padding: 30px;
+    padding: 20px 40px 40px;
 }
 
-/* --- UTILITIES --- */
-.step-indicator {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 20px;
-    gap: 10px;
-}
-.dot {
-    height: 10px;
-    width: 10px;
-    background-color: #bbb;
-    border-radius: 50%;
+/* --- STATUS INDICATORS (ส่วนที่เพิ่มมา) --- */
+.status-indicator {
     display: inline-block;
+    width: 10px; height: 10px;
+    background-color: var(--success);
+    border-radius: 50%;
+    margin-right: 8px;
+    box-shadow: 0 0 0 rgba(40, 167, 69, 0.4);
+    animation: pulse-green 2s infinite;
 }
-.dot.active {
-    background-color: #0d6efd;
+
+@keyframes pulse-green {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+}
+
+.station-badge {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    color: #495057;
+    padding: 8px 16px;
+    border-radius: 50px;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    transition: all 0.3s;
+}
+
+.station-badge:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* --- TABS --- */
+.nav-pills {
+    background: var(--gray-light);
+    border-radius: 8px;
+    padding: 4px;
+    margin-bottom: 25px;
+}
+
+.nav-pills .nav-link {
+    color: var(--text);
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.nav-pills .nav-link.active {
+    background-color: #ffffff;
+    color: var(--accent);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* --- FORMS & INPUTS --- */
+.form-control {
+    background-color: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 15px;
+    font-weight: 400;
+    transition: all 0.2s;
+}
+
+.form-control:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.1);
+}
+
+/* Input Group แต่งสวย */
+.input-group-text {
+    background-color: white;
+    border: 1px solid var(--border);
+    border-right: none;
+    color: var(--accent);
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
+
+.input-group .form-control {
+    border-left: none;
+}
+
+.input-group:focus-within .input-group-text {
+    border-color: var(--accent);
+}
+
+/* --- USER INFO CARD --- */
+.user-detail-card {
+    background-color: #fff;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--success);
+    padding: 15px;
+    margin-top: 20px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    display: none;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+}
+
+/* --- BUTTONS --- */
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+.btn-primary {
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
+
+.btn-primary:hover {
+    background-color: #002244;
+}
+
+/* ปุ่ม Usage Type */
+.btn-check:checked + .btn-outline-primary {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.btn-check:checked + .btn-outline-success {
+    background-color: var(--success);
+    border-color: var(--success);
+    color: white;
+}
+
+/* --- UTILS --- */
+.text-label {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 8px;
+    display: block;
+    font-weight: 500;
+}
+
+hr {
+    border-top: 1px solid var(--border);
+    opacity: 1;
+    margin: 30px 0;
+}
+
+.animate-fade {
+    animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+
+/* =========================================
+   ส่วนที่เพิ่มสำหรับหน้า FEEDBACK
+   ========================================= */
+
+/* 1. Success Animation (วงกลมเช็คถูก) */
+.success-animation { margin: 0 auto 20px; }
+.checkmark {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    display: block;
+    stroke-width: 2;
+    stroke: #4bb71b;
+    stroke-miterlimit: 10;
+    box-shadow: inset 0px 0px 0px #4bb71b;
+    animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
+    margin: 0 auto;
+}
+.checkmark__circle {
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    stroke-width: 2;
+    stroke-miterlimit: 10;
+    stroke: #4bb71b;
+    fill: #fff;
+    animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+.checkmark__check {
+    transform-origin: 50% 50%;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+}
+@keyframes stroke { 100% { stroke-dashoffset: 0; } }
+@keyframes scale { 0%, 100% { transform: none; } 50% { transform: scale3d(1.1, 1.1, 1); } }
+@keyframes fill { 100% { box-shadow: inset 0px 0px 0px 50px #4bb71b; } }
+
+/* 2. Star Rating */
+.star-rating {
+    display: inline-flex;
+    gap: 10px;
+    direction: row;
+}
+.star-rating span {
+    font-size: 3.5rem;
+    color: #e9ecef;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.star-rating span:hover,
+.star-rating span.hover-active {
+    color: #ffd700;
     transform: scale(1.2);
+}
+.star-rating span.active {
+    color: #ffc107;
+    transform: scale(1.1);
+    text-shadow: 0 4px 10px rgba(255, 193, 7, 0.4);
+}
+
+/* 3. Feedback Box */
+.feedback-box {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+}
+.feedback-box textarea {
+    resize: none;
+    background-color: #fff;
 }

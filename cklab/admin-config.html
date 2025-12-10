@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>System Config</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link href="main.css" rel="stylesheet">
+    <link href="admin.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <div class="d-flex">
+        
+        <div id="sidebar-container">
+            <a href="#" class="sidebar-brand"><i class="bi bi-shield-lock me-2"></i>Admin Panel</a>
+            <nav class="mt-3">
+                <a href="admin-monitor.html" class="nav-link-admin"><i class="bi bi-grid-fill"></i> Monitor</a>
+                <a href="admin-manage.html" class="nav-link-admin"><i class="bi bi-pc-display"></i> Manage PC</a>
+                <a href="admin-software.html" class="nav-link-admin"><i class="bi bi-robot"></i> Manage AI</a>
+                
+                <a href="admin-config.html" class="nav-link-admin active">
+                    <i class="bi bi-sliders"></i> System Config
+                </a>
+                
+                <div class="border-top my-3 mx-3"></div>
+                <a href="#" onclick="adminLogout()" class="nav-link-admin text-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="flex-grow-1 p-4" style="height: 100vh; overflow-y: auto;">
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h3 class="fw-bold text-primary mb-1">⚙️ System Configuration</h3>
+                    <p class="text-muted small mb-0">ตั้งค่าระบบ ผู้ดูแล และโซนที่นั่ง</p>
+                </div>
+            </div>
+
+            <ul class="nav nav-tabs mb-4" id="configTabs">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-admins">
+                        <i class="bi bi-person-badge-fill me-2"></i>ผู้ดูแลระบบ (Admins)
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-zones">
+                        <i class="bi bi-map-fill me-2"></i>โซนที่นั่ง (Zones)
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                
+                <div class="tab-pane fade show active" id="tab-admins">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 fw-bold">รายชื่อผู้ดูแลระบบ</h6>
+                            <button onclick="openAdminModal()" class="btn btn-primary btn-sm">
+                                <i class="bi bi-person-plus-fill me-1"></i> เพิ่มแอดมิน
+                            </button>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th class="ps-4">ชื่อ (Name)</th>
+                                        <th>Username</th>
+                                        <th>Password</th>
+                                        <th>Role</th>
+                                        <th class="text-end pe-4">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-zones">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0 fw-bold">โซนที่นั่งทั้งหมด</h6>
+                                    <button onclick="openZoneModal()" class="btn btn-success btn-sm">
+                                        <i class="bi bi-plus-lg me-1"></i> เพิ่มโซน
+                                    </button>
+                                </div>
+                                <ul class="list-group list-group-flush" id="zoneList"></ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm bg-primary bg-opacity-10 h-100">
+                                <div class="card-body text-center d-flex flex-column justify-content-center">
+                                    <i class="bi bi-robot text-primary mb-3" style="font-size: 3rem;"></i>
+                                    <h5>จัดการ AI Tools & Software</h5>
+                                    <p class="text-muted small">
+                                        รายชื่อ AI เช่น ChatGPT, Gemini และ Software ต่างๆ <br>
+                                        ถูกแยกไปจัดการที่เมนูเฉพาะ
+                                    </p>
+                                    <a href="admin-software.html" class="btn btn-outline-primary w-50 mx-auto">
+                                        ไปที่เมนู Manage AI
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+<div class="modal fade" id="adminModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">เพิ่มผู้ดูแลระบบ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault(); saveAdmin();">
+                    <input type="hidden" id="adminId">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">ชื่อ-นามสกุล</label>
+                        <input type="text" id="adminName" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Username</label>
+                        <input type="text" id="adminUser" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Password</label>
+                        <div class="input-group">
+                            <input type="text" id="adminPass" class="form-control" required>
+                            <span class="input-group-text"><i class="bi bi-key"></i></span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">ระดับ (Role)</label>
+                        <select id="adminRole" class="form-select">
+                            <option value="Staff">Staff (เจ้าหน้าที่)</option>
+                            <option value="Super Admin">Super Admin (ผู้ดูแลสูงสุด)</option>
+                        </select>
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary">บันทึก</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <div class="modal fade" id="zoneModal" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">เพิ่มโซน</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form onsubmit="event.preventDefault(); saveZone();">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">ชื่อโซน</label>
+                            <input type="text" id="zoneName" class="form-control" placeholder="เช่น Zone C" required>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">บันทึก</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="mock-db.js"></script>
+    <script src="admin-config.js"></script>
+    <script>
+        function adminLogout() {
+            if(confirm('ยืนยันออกจากระบบ?')) {
+                DB.clearSession();
+                window.location.href = 'admin-login.html';
+            }
+        }
+    </script>
+</body>
+</html>

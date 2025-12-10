@@ -1,1 +1,122 @@
-/* Styles for admin.css */
+/* admin.css - Admin Dashboard Styles */
+
+/* --- SIDEBAR --- */
+#sidebar-container {
+    min-height: 100vh;
+    background-color: #ffffff;
+    border-right: 1px solid var(--border);
+    width: 250px;
+    flex-shrink: 0;
+}
+
+.sidebar-brand {
+    padding: 20px;
+    font-weight: bold;
+    color: var(--primary);
+    border-bottom: 1px solid var(--border);
+    display: block;
+    text-decoration: none;
+    font-size: 1.2rem;
+}
+
+.nav-link-admin {
+    display: block;
+    padding: 12px 20px;
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 500;
+    border-left: 4px solid transparent;
+    transition: all 0.2s;
+}
+
+.nav-link-admin:hover {
+    background-color: var(--gray-light);
+    color: var(--accent);
+}
+
+.nav-link-admin.active {
+    background-color: #eef5ff;
+    color: var(--accent);
+    border-left-color: var(--accent);
+}
+
+.nav-link-admin i {
+    width: 25px;
+    text-align: center;
+    margin-right: 5px;
+}
+
+/* --- DASHBOARD MONITOR GRID --- */
+.monitor-header {
+    background: #fff;
+    padding: 15px 25px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.monitor-content {
+    padding: 25px;
+}
+
+/* PC Card Styling */
+.pc-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+}
+
+.pc-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+}
+
+.pc-card-body {
+    padding: 20px;
+    text-align: center;
+}
+
+/* Status Strip (แถบสีด้านบนการ์ด) */
+.pc-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6px;
+}
+
+/* Status Variations */
+.status-available::before { background-color: var(--success); }
+.status-in_use::before { background-color: #dc3545; } /* Red */
+.status-reserved::before { background-color: #ffc107; } /* Yellow */
+.status-maintenance::before { background-color: #6c757d; } /* Gray */
+
+.pc-icon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    display: block;
+}
+
+.pc-icon.available { color: var(--success); }
+.pc-icon.in_use { color: #dc3545; }
+.pc-icon.reserved { color: #ffc107; }
+.pc-icon.maintenance { color: #6c757d; }
+
+/* Status Dot (Legend) */
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* --- MODAL --- */
+.modal-icon-header {
+    font-size: 3.5rem;
+    margin-bottom: 10px;
+}
