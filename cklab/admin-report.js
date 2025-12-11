@@ -1,29 +1,69 @@
-/* admin-report.js (Final Fix: Stability and Chart Redraw) */
+/* admin-report.js (Updated: เพิ่ม Master List คณะ/หน่วยงาน ในตัวกรอง) */
 
-// Global variables for Chart instances and all logs (ต้องประกาศไว้ด้านบน)
+// Global variables
 let monthlyChartInstance, pieChartInstance, pcAvgChartInstance; 
 let allLogs; 
 
+// ✅ 1. รายชื่อคณะ/หน่วยงานทั้งหมด (Master List)
+const MASTER_FACULTIES = [
+    "กองกลาง",
+    "กองการเจ้าหน้าที่",
+    "กองคลัง",
+    "กองบริการการศึกษา",
+    "กองแผนงาน",
+    "คณะนิติศาสตร์",
+    "คณะบริหารศาสตร์",
+    "คณะพยาบาลศาสตร์",
+    "คณะเภสัชศาสตร์",
+    "คณะรัฐศาสตร์",
+    "คณะวิทยาศาสตร์",
+    "คณะวิศวกรรมศาสตร์",
+    "คณะศิลปศาสตร์",
+    "คณะศิลปประยุกต์และสถาปัตยกรรมศาสตร์",
+    "คณะศึกษาศาสตร์",
+    "คณะเกษตรศาสตร์",
+    "สถานปฏิบัติการโรงแรมฯ (U-Place)",
+    "สภาอาจารย์",
+    "สำนักงานตรวจสอบภายใน",
+    "สำนักงานนิติการ / สำนักงานกฎหมาย",
+    "สำนักงานบริหารกายภาพและสิ่งแวดล้อม",
+    "สำนักงานพัฒนานักศึกษา",
+    "สำนักงานวิเทศสัมพันธ์",
+    "สำนักงานส่งเสริมและบริหารงานวิจัย",
+    "สำนักงานรักษาความปลอดภัย",
+    "ศูนย์การจัดการความรู้ (KM)",
+    "ศูนย์การเรียนรู้และพัฒนา 'งา' เชิงเกษตรอุตสาหกรรมครัวเรือนแบบยั่งยืน",
+    "ศูนย์เครื่องมือวิทยาศาสตร์",
+    "ศูนย์วิจัยสังคมอนุภาคลุ่มน้ำโขง",
+    "สหกรณ์ออมทรัพย์มหาวิทยาลัยอุบลราชธานี",
+    "สำนักคอมพิวเตอร์และเครือข่าย",
+    "สำนักบริหารทรัพย์สินและสิทธิประโยชน์",
+    "สำนักวิทยบริการ",
+    "อุทยานวิทยาศาสตร์มหาวิทยาลัยอุบลราชธานี",
+    "โรงพิมพ์มหาวิทยาลัยอุบลราชธานี",
+    "วิทยาลัยแพทยศาสตร์และการสาธารณสุข"
+];
+
 document.addEventListener('DOMContentLoaded', () => {
-    // Auth Check (คงเดิม)
+    // Auth Check
     const session = DB.getSession();
     if (!session || !session.user || session.user.role !== 'admin') {
-        // window.location.href = 'admin-login.html'; // เปิดใช้งานเมื่อใช้งานจริง
-        console.log("Admin session not found, running report view locally.");
+        console.log("Admin session not found.");
     }
     
-    allLogs = DB.getLogs(); // Load all logs once
-    populateFilterOptions(allLogs);
-    initializeReports(allLogs); // Initial draw with all data
+    allLogs = DB.getLogs(); 
+    populateFilterOptions(allLogs); // สร้างตัวเลือกใน Dropdown
+    initializeReports(allLogs); 
 });
 
 // ==========================================
-// 0. FILTER LOGIC & INITIALIZATION (คงเดิม)
+// 0. FILTER LOGIC & INITIALIZATION
 // ==========================================
 
 function populateFilterOptions(logs) {
-    // ... (ฟังก์ชัน populateFilterOptions คงเดิม) ...
-    const faculties = new Set();
+    // ✅ ใช้ Set โดยเริ่มจาก MASTER_FACULTIES เพื่อให้มีครบทุกคณะแน่นอน
+    const faculties = new Set(MASTER_FACULTIES);
+    
     const levels = new Set();
     const years = new Set();
     
@@ -35,24 +75,28 @@ function populateFilterOptions(logs) {
         return numA - numB;
     };
 
+    // วนลูป Log เพื่อเก็บข้อมูล Level และ Year (และ Faculty เพิ่มเติมถ้ามีนอกเหนือจาก Master List)
     logs.forEach(log => {
         if (log.userFaculty) faculties.add(log.userFaculty);
         if (log.userLevel) levels.add(log.userLevel);
         if (log.userYear && log.userYear !== '-') years.add(log.userYear);
     });
 
+    // 1. สร้าง Dropdown คณะ (เรียงตามตัวอักษร)
     const facultySelect = document.getElementById('filterFaculty');
     facultySelect.innerHTML = '<option value="">-- ทั้งหมด --</option>';
     Array.from(faculties).sort(sortAlphabetically).forEach(f => {
         facultySelect.innerHTML += `<option value="${f}">${f}</option>`;
     });
 
+    // 2. สร้าง Dropdown ระดับการศึกษา
     const levelSelect = document.getElementById('filterLevel');
     levelSelect.innerHTML = '<option value="">-- ทั้งหมด --</option>';
     Array.from(levels).sort(sortAlphabetically).forEach(l => {
         levelSelect.innerHTML += `<option value="${l}">${l}</option>`;
     });
     
+    // 3. สร้าง Dropdown ชั้นปี
     const yearSelect = document.getElementById('filterYear');
     yearSelect.innerHTML = '<option value="">-- ทั้งหมด --</option>';
     Array.from(years).sort(sortNumerically).forEach(y => {
@@ -80,14 +124,14 @@ function applyFilters() {
 
 function clearFilters() {
     document.getElementById('reportFilterForm').reset();
-    initializeReports(allLogs); // ใช้นำเข้าข้อมูลทั้งหมด (allLogs)
+    initializeReports(allLogs);
 }
 
 function filterLogs(logs, params) {
     let filtered = logs;
     const { startDate, endDate, faculty, userType, level, year } = params;
     
-    // 1. Date Range Filter
+    // 1. Date Range
     if (startDate) {
         const start = new Date(startDate);
         start.setHours(0, 0, 0, 0);
@@ -99,12 +143,12 @@ function filterLogs(logs, params) {
         filtered = filtered.filter(log => new Date(log.timestamp).getTime() <= end.getTime());
     }
 
-    // 2. Faculty Filter
+    // 2. Faculty
     if (faculty) {
         filtered = filtered.filter(log => log.userFaculty === faculty);
     }
     
-    // 3. User Type Filter
+    // 3. User Type
     if (userType) {
         if (userType === 'Internal') {
             filtered = filtered.filter(log => log.userRole === 'student' || log.userRole === 'staff');
@@ -113,12 +157,12 @@ function filterLogs(logs, params) {
         }
     }
 
-    // 4. Level Filter
+    // 4. Level
     if (level) {
         filtered = filtered.filter(log => log.userLevel === level);
     }
     
-    // 5. Year Filter
+    // 5. Year
     if (year) {
         filtered = filtered.filter(log => log.userYear === year);
     }
@@ -126,38 +170,28 @@ function filterLogs(logs, params) {
     return filtered;
 }
 
-// Main function to initialize (or re-initialize) reports (FIXED)
+// ... (ส่วน initializeReports, processLogs, Chart Functions และ renderLogHistory คงเดิม ไม่ต้องแก้) ...
+// เพื่อความสะดวก ผมรวมฟังก์ชันที่เหลือไว้ให้ครบถ้วนด้านล่างนี้เลยครับ
+
 function initializeReports(logs) {
-    // 🔥 CRITICAL FIX: ทำลายกราฟเก่าก่อนวาดใหม่ทุกครั้ง
     if (monthlyChartInstance) monthlyChartInstance.destroy();
     if (pieChartInstance) pieChartInstance.destroy();
     if (pcAvgChartInstance) pcAvgChartInstance.destroy();
     
-    // Render Log Table (ไม่ขึ้นกับ END_SESSION)
     renderLogHistory(logs); 
 
-    // กรองเอาเฉพาะ Log ที่จบ Session แล้ว สำหรับคำนวณสถิติ
     const statsLogs = logs.filter(l => l.action === 'END_SESSION'); 
     
     if (statsLogs.length === 0) {
-        console.warn("Not enough completed sessions for charting.");
-        // ถ้าไม่มีข้อมูล ให้วาดกราฟเปล่า (ถ้า canvas ยังอยู่)
-        // Note: Chart.js 4+ จะจัดการแสดงผลว่างเปล่าได้ดีขึ้น
         return; 
     }
 
     const processedData = processLogs(statsLogs);
     
-    // Draw charts and cache instances
     monthlyChartInstance = drawMonthlyUserChart(processedData.monthlyFacultyData); 
     pieChartInstance = drawAIUsagePieChart(processedData.aiUsageData); 
     pcAvgChartInstance = drawPCAvgTimeChart(processedData.pcAvgTimeData);
 }
-
-
-// ==========================================
-// 1. DATA PROCESSING LOGIC (คงเดิม)
-// ==========================================
 
 function processLogs(filteredStatsLogs) {
     const monthlyFacultyData = {};
@@ -171,18 +205,15 @@ function processLogs(filteredStatsLogs) {
         const duration = log.durationMinutes || 0;
         const pcId = log.pcId || 'Unknown';
         
-        // 1.1 Monthly Faculty
         if (!monthlyFacultyData[monthYear]) monthlyFacultyData[monthYear] = {};
         monthlyFacultyData[monthYear][faculty] = (monthlyFacultyData[monthYear][faculty] || 0) + 1;
 
-        // 1.2 AI Usage
         if (log.isAIUsed) {
             aiUsageData.ai += 1;
         } else {
             aiUsageData.nonAI += 1;
         }
 
-        // 1.3 PC Avg Time
         if (!pcUsageMap.has(pcId)) {
             pcUsageMap.set(pcId, { totalDuration: 0, count: 0 });
         }
@@ -197,10 +228,6 @@ function processLogs(filteredStatsLogs) {
 
     return { monthlyFacultyData, aiUsageData, pcAvgTimeData };
 }
-
-// ==========================================
-// 2. CHART DRAWING FUNCTIONS (คงเดิม)
-// ==========================================
 
 const CHART_COLORS = [
     'rgba(255, 99, 132, 0.8)', 'rgba(54, 162, 235, 0.8)', 'rgba(255, 206, 86, 0.8)', 
@@ -258,9 +285,7 @@ function drawAIUsagePieChart(data) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'top' }
-            }
+            plugins: { legend: { position: 'top' } }
         }
     });
 }
@@ -286,40 +311,34 @@ function drawPCAvgTimeChart(data) {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                y: {
-                    beginAtZero: true,
-                    title: { display: true, text: 'นาที' }
-                }
+                y: { beginAtZero: true, title: { display: true, text: 'นาที' } }
             }
         }
     });
 }
 
-// ==========================================
-// 3. LOG HISTORY RENDERING (คงเดิม)
-// ==========================================
-
 function formatLogDate(isoString) {
     if (!isoString) return '-';
     const date = new Date(isoString); 
-    return date.toLocaleDateString('th-TH', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric'
-    });
+    return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 function formatLogTime(isoString) {
     if (!isoString) return '-';
     const date = new Date(isoString); 
-    return date.toLocaleTimeString('th-TH', { 
-        hour: '2-digit', 
-        minute: '2-digit'
-    });
+    return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+}
+
+function getSatisfactionDisplay(score) {
+    if (score === undefined || score === null) return '<span class="text-muted">-</span>';
+    const scoreNum = parseFloat(score);
+    if (scoreNum >= 4) return `<span class="badge bg-success fw-bold"><i class="bi bi-star-fill"></i> ${score}</span>`;
+    else if (scoreNum >= 2) return `<span class="badge bg-warning text-dark"><i class="bi bi-star-half"></i> ${score}</span>`;
+    else return `<span class="badge bg-danger"><i class="bi bi-star"></i> ${score}</span>`;
 }
 
 function renderLogHistory(logs) {
     const tbody = document.getElementById('logHistoryTableBody');
-    const COLSPAN_COUNT = 9; 
+    const COLSPAN_COUNT = 10;
     
     if (!tbody) return;
 
@@ -328,10 +347,12 @@ function renderLogHistory(logs) {
         return;
     }
 
+    // เรียงลำดับจาก ใหม่ -> เก่า (เหมือนเดิม)
     const sortedLogs = logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     
     tbody.innerHTML = sortedLogs.map((log, index) => {
         
+        // 1. User Info
         const displayNameOrId = log.userName || log.userId || 'N/A';
         const displayFaculty = log.userFaculty || (log.userRole === 'external' ? 'บุคคลภายนอก' : 'ไม่ระบุสังกัด');
         
@@ -341,19 +362,21 @@ function renderLogHistory(logs) {
             <span class="small text-muted">${displayFaculty}</span>
         `;
         
+        // 2. Status
         let statusText = log.action || 'Undefined';
         let statusClass = 'bg-secondary';
         let rowClass = '';
 
         switch(log.action) {
             case 'START_SESSION':
-                statusText = 'เริ่มต้นใช้งาน';
+                statusText = 'Check in';
                 statusClass = 'bg-primary';
                 rowClass = 'table-info bg-opacity-10';
                 break;
             case 'END_SESSION':
-                statusText = 'สิ้นสุด Session';
+                statusText = 'Check out';
                 statusClass = 'bg-success';
+                rowClass = 'table-success bg-opacity-10'; 
                 break;
             case 'Admin Check-in':
                 statusText = 'Admin Check-in';
@@ -365,8 +388,12 @@ function renderLogHistory(logs) {
                 statusClass = 'bg-danger';
                 rowClass = 'table-danger bg-opacity-10';
                 break;
+            default:
+                 statusClass = 'bg-secondary';
+                 statusText = log.action;
         }
         
+        // 3. Software/AI Used
         let softUsedDisplay = '<span class="text-muted">-</span>';
         if (Array.isArray(log.usedSoftware) && log.usedSoftware.length > 0) {
             softUsedDisplay = log.usedSoftware.map(s => {
@@ -376,13 +403,16 @@ function renderLogHistory(logs) {
             }).join('');
         }
         
+        // 4. Time, Duration, Score
         const startTime = log.startTime || log.timestamp;
         const endTime = log.timestamp;
         const durationText = log.durationMinutes ? `${log.durationMinutes.toFixed(0)} min` : '-';
+        const satisfactionScoreDisplay = getSatisfactionDisplay(log.satisfactionScore);
         
         return `
             <tr class="${rowClass}">
-                <td class="text-center">${sortedLogs.length - index}</td>
+                <td class="text-center">${index + 1}</td> 
+                
                 <td class="small text-nowrap">${formatLogDate(endTime)}</td>
                 <td class="small text-nowrap">${formatLogTime(startTime)}</td>
                 <td class="small text-nowrap">${formatLogTime(endTime)}</td>
@@ -391,31 +421,23 @@ function renderLogHistory(logs) {
                 <td>${softUsedDisplay}</td>
                 <td><span class="badge ${statusClass} fw-normal">${statusText}</span></td>
                 <td class="text-end text-nowrap">${durationText}</td>
+                <td class="text-center">${satisfactionScoreDisplay}</td>
             </tr>
         `;
     }).join('');
 }
 
-
-// Helper function: จัดรูปแบบวันที่และเวลาสำหรับการ Export
 function formatExportDateTime(isoString) {
     if (!isoString) return '';
     const date = new Date(isoString);
-    // ใช้รูปแบบ ISO เพื่อความแม่นยำในไฟล์ CSV (yyyy-mm-dd HH:MM)
     return date.toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' ' +
            date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-// Helper function: จัดรูปแบบ Software List สำหรับคอลัมน์เดียว
 function formatSoftwareForCSV(softwareArray) {
     if (!Array.isArray(softwareArray) || softwareArray.length === 0) return '';
-    // รวมรายการ Software ด้วยเครื่องหมาย ; แทน , เพื่อไม่ให้ CSV คอลัมน์เพี้ยน
     return softwareArray.join('; '); 
 }
-
-// ==========================================
-// 4. EXPORT CSV FUNCTION (FIXED HEADERS)
-// ==========================================
 
 function exportCSV() {
     // 1. ดึง Log ที่ถูกกรองอยู่ในปัจจุบัน
@@ -426,65 +448,63 @@ function exportCSV() {
         return;
     }
 
-    // ✅ HARDCODE: กำหนดหัวตารางตามที่คุณต้องการ
+    // 2. HARDCODE: กำหนดหัวตาราง
     const headers = [
         "ลำดับ", 
         "วันที่", 
         "เวลาเข้า", 
         "เวลาออก", 
         "ผู้ใช้ / ID", 
-        "คณะ / สังกัด", // เพิ่มคณะ/สังกัดให้ครบ
+        "คณะ / สังกัด", 
         "PC ที่ใช้", 
         "AI/Software ที่ใช้", 
         "สถานะ", 
-        "ระยะเวลา (นาที)"
+        "ระยะเวลา (นาที)", 
+        "ความพึงพอใจ (Score)"
     ];
     
-    // 2. Map ข้อมูล Log ให้ตรงกับหัวตาราง
+    // 3. Map ข้อมูล Log ให้ตรงกับหัวตาราง
     const csvRows = filteredLogs.map((log, index) => {
         
-        // เตรียมข้อมูลที่จำเป็น
         const startTimeStr = log.startTime ? formatExportDateTime(log.startTime) : formatExportDateTime(log.timestamp);
         const endTimeStr = formatExportDateTime(log.timestamp);
         const userNameDisplay = log.userName || log.userId || '';
         const userFaculty = log.userFaculty || (log.userRole === 'external' ? 'บุคคลภายนอก' : '');
         const pcName = `PC-${log.pcId || 'N/A'}`;
         const softwareList = formatSoftwareForCSV(log.usedSoftware);
-        const statusText = log.action || 'Undefined';
+        
+        // ✅ FIX: แปลงสถานะให้เป็นคำที่อ่านง่าย
+        let statusText = log.action;
+        if (log.action === 'START_SESSION') statusText = 'Check in';
+        else if (log.action === 'END_SESSION') statusText = 'Check out';
+        else if (!statusText) statusText = 'Undefined';
+
         const durationMinutes = log.durationMinutes ? log.durationMinutes.toFixed(0) : '';
+        const satisfactionScore = log.satisfactionScore !== undefined ? log.satisfactionScore : '';
 
         // สร้างแถวข้อมูลตามลำดับ Header
         return [
-            // ลำดับ (1, 2, 3...)
             `"${index + 1}"`, 
-            // วันที่ (ดึงจากเวลาออก)
             `"${endTimeStr.split(' ')[0]}"`, 
-            // เวลาเข้า
             `"${startTimeStr.split(' ')[1]}"`, 
-            // เวลาออก
             `"${endTimeStr.split(' ')[1]}"`, 
-            // ผู้ใช้ / ID
             `"${userNameDisplay}"`, 
-            // คณะ / สังกัด
             `"${userFaculty}"`,
-            // PC ที่ใช้
             `"${pcName}"`, 
-            // AI/Software ที่ใช้
             `"${softwareList}"`, 
-            // สถานะ
-            `"${statusText}"`, 
-            // ระยะเวลา (นาที)
-            `"${durationMinutes}"`
+            `"${statusText}"`, // ✅ ใช้ค่าที่แปลงแล้ว
+            `"${durationMinutes}"`,
+            `"${satisfactionScore}"`
         ].join(',');
     });
 
-    // 3. รวม Header กับ Rows
+    // 4. รวม Header กับ Rows
     const csvContent = [
         headers.join(','),
         ...csvRows
     ].join('\n');
 
-    // 4. สร้าง Blob และ Force Download
+    // 5. สร้าง Blob และ Force Download
     const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     

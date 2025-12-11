@@ -1,51 +1,56 @@
-/* feedback.js - Compatible with New Design */
+/* feedback.js - Final Fix: Stability and Full Session Check-out */
 
-let currentRate = 5; // คะแนนเริ่มต้น
+let currentRate = 5; // คะแนนที่ถูกเลือก
+let sessionData = null; // เก็บข้อมูล Session ที่โหลดมา
 
-// ข้อความบรรยายระดับคะแนน
+// ข้อความและสีบรรยายระดับคะแนน (ใช้ในการแสดงผล)
 const RATING_TEXTS = {
-    1: "ต้องปรับปรุง",
-    2: "พอใช้",
-    3: "ปานกลาง",
-    4: "ดี",
-    5: "ยอดเยี่ยม"
+    1: "ต้องปรับปรุง", 2: "พอใช้", 3: "ปานกลาง", 4: "ดี", 5: "ยอดเยี่ยม"
 };
-
-// สีข้อความตามระดับคะแนน
 const RATING_COLORS = {
-    1: "#dc3545", // แดง
-    2: "#dc3545",
-    3: "#ffc107", // เหลือง
-    4: "#28a745", // เขียว
-    5: "#198754"  // เขียวเข้ม
+    1: "#dc3545", 2: "#dc3545", 3: "#ffc107", 4: "#28a745", 5: "#198754"
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // เริ่มต้นที่ 5 ดาว
+    // 1. โหลด Session Data
+    sessionData = DB.getSession();
+    
+    // ตรวจสอบ Session และข้อมูลสำคัญ
+    if (!sessionData || !sessionData.startTime || !sessionData.pcId) {
+        alert('❌ Error: ไม่พบ Session หรือ PC ID กรุณาลงชื่อเข้าใช้ใหม่');
+        window.location.href = 'index.html';
+        return;
+    }
+    
+    // 2. แสดงข้อมูลระยะเวลา
+    const durationMinutes = sessionData.durationMinutes || 0;
+    const durationDisplay = document.getElementById('durationDisplay');
+    if (durationDisplay) {
+        durationDisplay.textContent = `${durationMinutes} นาที`;
+    }
+
+    // 3. ตั้งค่าเริ่มต้นที่ 5 ดาว (Default)
     setRate(5);
 });
 
 // --- 1. ฟังก์ชันจัดการดาวและการให้คะแนน ---
 
-// เมื่อคลิกเลือกดาว
+function getStarElements() {
+    return document.querySelectorAll('#starContainer span');
+}
+
 function setRate(rate) {
     currentRate = rate;
-    
-    // อัปเดตสีดาว (Active state)
-    const stars = document.querySelectorAll('#starContainer span');
-    stars.forEach((star, index) => {
-        if (index < rate) {
-            star.classList.add('active');
-        } else {
-            star.classList.remove('active');
-        }
-    });
+    const stars = getStarElements();
+    if (stars.length === 0) return;
 
-    // อัปเดตข้อความด้านล่าง
+    stars.forEach((star, index) => {
+        star.classList.toggle('active', index < rate);
+        star.classList.remove('hover-active');
+    });
     updateRateText(rate);
 }
 
-// อัปเดตข้อความ (เช่น "ยอดเยี่ยม (5/5)")
 function updateRateText(rate) {
     const txtElement = document.getElementById('rateText');
     if (txtElement) {
@@ -54,67 +59,86 @@ function updateRateText(rate) {
     }
 }
 
-// --- 2. ฟังก์ชันลูกเล่น (Hover Effects) ---
-
-// เมื่อเอาเมาส์ชี้ดาว (Preview)
 function hoverStar(rate) {
-    const stars = document.querySelectorAll('#starContainer span');
+    const stars = getStarElements();
+    if (stars.length === 0) return;
     stars.forEach((star, index) => {
-        if (index < rate) {
-            star.classList.add('hover-active');
-        } else {
-            star.classList.remove('hover-active');
-        }
+        star.classList.toggle('hover-active', index < rate);
     });
 }
 
-// เมื่อเอาเมาส์ออก (Reset)
 function resetHover() {
-    const stars = document.querySelectorAll('#starContainer span');
+    const stars = getStarElements();
+    if (stars.length === 0) return;
     stars.forEach(star => star.classList.remove('hover-active'));
 }
 
-// --- 3. ฟังก์ชันส่งข้อมูล (Submit) ---
+
+// --- 3. ฟังก์ชันส่งข้อมูล (Submit) - FIXED ---
 
 function submitFeedback() {
-    const session = DB.getSession();
-
-    // กรณีไม่มี Session (เปิดหน้าเว็บทิ้งไว้นาน หรือเข้าผิดหน้า)
-    if (!session) {
+    const session = sessionData; // ใช้ข้อมูล Session ที่โหลดไว้ตอน DOMContentLoaded
+    
+    if (!session || !session.pcId) {
+        alert("❌ Error: Session ขาดหาย ไม่สามารถบันทึก Check-out ได้");
         window.location.href = 'index.html';
         return;
     }
-
+    
     const pcId = session.pcId;
-
-    // A. คืนสถานะเครื่องเป็น Available (ว่าง)
-    // สำคัญมาก: ต้องทำเพื่อปลดล็อคเครื่องให้คนถัดไป
-    DB.updatePCStatus(pcId, 'available');
-
-    // B. บันทึก Log การ Check-out
+    const pc = DB.getPCs().find(p => p.id == pcId); 
+    
+    const satisfactionScore = currentRate; 
     const comment = document.getElementById('comment').value.trim();
     
-    DB.saveLog({
-        action: 'Check-out',
-        user: session.user ? session.user.name : 'Unknown',
-        pcId: pcId,
-        userType: session.user ? session.user.type : 'guest',
-        rating: currentRate,
-        comment: comment,
-        duration: Date.now() - session.startTime
-    });
+    // ป้องกันการกดซ้ำ
+    const submitButton = document.querySelector('.btn-primary');
+    submitButton.disabled = true;
 
-    // C. ล้าง Session (ออกจากระบบ)
-    DB.clearSession();
+    try {
+        // 1. ตรวจสอบความสมบูรณ์ของ PC Data ก่อน Log
+        if (!pc) {
+             throw new Error(`PC ID ${pcId} not found in DB.`);
+        }
+        
+        // 2. บันทึก Log สิ้นสุด Session ที่สมบูรณ์
+        const user = session.user || {};
+        
+        DB.saveLog({
+            action: 'END_SESSION', 
+            userId: user.id || 'N/A',
+            userName: user.name || 'N/A',
+            userFaculty: user.faculty || 'N/A',
+            userLevel: user.level || 'N/A',
+            userYear: user.year || 'N/A',
+            userRole: user.role || 'N/A',
+            pcId: pcId,
+            
+            startTime: new Date(session.startTime).toISOString(),
+            timestamp: new Date().toISOString(), 
+            durationMinutes: session.durationMinutes, 
+            satisfactionScore: satisfactionScore, 
+            comment: comment, 
+            
+            usedSoftware: pc.software || [], 
+            isAIUsed: pc.software.some(s => s.toLowerCase().includes('ai') || s.toLowerCase().includes('gpt'))
+        });
 
-    // D. แจ้งเตือนและกลับหน้าแรก
-    // ใช้ setTimeout เล็กน้อยเพื่อให้ UX ดูลื่นไหล
-    alert("✅ บันทึกข้อมูลเรียบร้อย\nขอบคุณที่ใช้บริการ CKLab ครับ");
+        // 3. อัปเดตสถานะ PC
+        DB.updatePCStatus(pcId, 'available', null);
 
-    // E. Redirect กลับไปหน้า Index พร้อมแนบเลขเครื่องเดิม (Kiosk Loop)
-    if (pcId) {
-        window.location.href = `index.html#${pcId}`;
-    } else {
-        window.location.href = 'index.html';
+        // 4. ล้าง Session 
+        DB.clearSession(); 
+
+        // 5. แสดง Popup และ Redirect
+        setTimeout(() => {
+            alert(`✅ บันทึกข้อมูลเรียบร้อย (คะแนน: ${satisfactionScore}/5)\nขอบคุณที่ใช้บริการ CKLab ครับ`);
+            window.location.href = `index.html?pc=${pcId}`; 
+        }, 300);
+
+    } catch (error) {
+        console.error("Critical Feedback Submission Error:", error);
+        alert("❌ เกิดข้อผิดพลาดร้ายแรงในการบันทึกข้อมูล Log (โปรดแจ้งเจ้าหน้าที่)");
+        submitButton.disabled = false;
     }
 }
