@@ -1,7 +1,7 @@
-/* auth.js - Fixed Station Version (Updated with Full Data Sync) */
+/* auth.js - Fixed Station Version (Updated for Booking Check-in) */
 
 // ==========================================
-// 🔧 SYSTEM CONFIG: ดึงเลขเครื่องจาก URL (เช่น index.html?pc=1)
+// 🔧 SYSTEM CONFIG: ดึงเลขเครื่องจาก URL
 // ==========================================
 function getSystemPCId() {
     if (window.location.hash) {
@@ -15,17 +15,17 @@ function getSystemPCId() {
 const FIXED_PC_ID = getSystemPCId(); 
 // ==========================================
 
-let verifiedUserData = null; // เก็บข้อมูลผู้ใช้ที่ Verify แล้ว (Internal)
+let verifiedUserData = null;
 let activeTab = 'internal';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // เช็คว่ามีเลขเครื่องไหม
+    // เช็ค PC ID
     if (!FIXED_PC_ID || isNaN(parseInt(FIXED_PC_ID))) {
         document.body.innerHTML = `
             <div class="d-flex justify-content-center align-items-center vh-100 flex-column text-center">
                 <h2 class="text-danger">⚠️ ไม่พบหมายเลขเครื่อง (PC ID)</h2>
-                <p class="text-muted">กรุณาระบุเลขเครื่องใน URL เพื่อเริ่มใช้งาน<br>ตัวอย่าง: <code>index.html?pc=1</code></p>
-                <a href="index.html?pc=1" class="btn btn-primary mt-3">ทดลองเข้าใช้งานเครื่องที่ 1</a>
+                <p class="text-muted">กรุณาระบุเลขเครื่องใน URL<br>ตัวอย่าง: <code>index.html?pc=1</code></p>
+                <a href="index.html?pc=1" class="btn btn-primary mt-3">เข้าใช้งานเครื่องที่ 1</a>
             </div>
         `;
         return;
@@ -46,14 +46,14 @@ function checkMachineStatus() {
     const pc = DB.getPCs().find(p => p.id == FIXED_PC_ID);
     
     if (!pc) {
-        alert(`System Error: ไม่พบการตั้งค่าเครื่องหมายเลข ${FIXED_PC_ID} ใน Database`);
+        alert(`System Error: ไม่พบข้อมูลเครื่อง PC-${FIXED_PC_ID}`);
         return;
     }
     
-    // อัปเดตสถานะ Dot
+    // Status Indicator
     const indicator = document.querySelector('.status-indicator');
     if(indicator) {
-        indicator.className = 'status-indicator'; // Reset class
+        indicator.className = 'status-indicator';
         indicator.classList.add(
             `bg-${pc.status === 'available' ? 'success' : 
                    pc.status === 'in_use' ? 'danger' : 
@@ -61,11 +61,9 @@ function checkMachineStatus() {
         );
         indicator.title = pc.status.toUpperCase();
     }
-    
 
-    // ถ้าเครื่อง In Use อยู่แล้ว ให้เด้งไปหน้า Timer เลย (Resume)
+    // Auto Resume Session
     if (pc.status === 'in_use') {
-         // สร้าง Session ชั่วคราว ถ้ายังไม่มี
          const currentSession = DB.getSession();
          if (!currentSession || currentSession.pcId != FIXED_PC_ID) {
               DB.setSession({
@@ -87,11 +85,9 @@ function switchTab(type) {
     document.getElementById('formExternal').classList.toggle('d-none', type !== 'external');
     document.getElementById('internalVerifyCard').style.display = 'none';
     
-    // Reset Form สำหรับ Internal
     if (type === 'internal') {
         document.getElementById('ubuUser').value = '';
     }
-
     validateForm();
 }
 
@@ -103,7 +99,6 @@ function verifyUBUUser() {
     const verifyCard = document.getElementById('internalVerifyCard');
     
     if (user) {
-        // ✅ ข้อมูล User สมบูรณ์
         verifiedUserData = { 
             id: id, 
             name: user.prefix + user.name, 
@@ -120,7 +115,7 @@ function verifyUBUUser() {
         verifyCard.style.display = 'block';
         validateForm();
     } else {
-        alert("❌ ไม่พบข้อมูล (Hint: 66123456)");
+        alert("❌ ไม่พบข้อมูลในระบบ");
         verifyCard.style.display = 'none';
         verifiedUserData = null;
         validateForm();
@@ -139,39 +134,43 @@ function validateForm() {
         isUserValid = (id !== '' && name !== '');
     }
     
-    // ตรวจสอบสถานะเครื่องอีกครั้ง
     const pc = DB.getPCs().find(p => p.id == FIXED_PC_ID);
-    const isMachineAvailable = pc && pc.status === 'available';
+    
+    // ✅ แก้ไข: อนุญาตให้ปุ่มทำงานได้ ถ้าเครื่องว่าง OR ถูกจองไว้ (reserved)
+    const isAccessible = pc && (pc.status === 'available' || pc.status === 'reserved');
 
-    if (isUserValid && isMachineAvailable) {
+    if (isUserValid && isAccessible) {
         btn.disabled = false;
         btn.classList.replace('btn-secondary', 'btn-success');
+        
+        // เปลี่ยนข้อความปุ่มถ้าเป็นการจอง
+        if (pc.status === 'reserved') {
+            btn.innerHTML = `<i class="bi bi-calendar-check me-2"></i>ยืนยันการเข้าใช้งาน (จองไว้)`;
+        } else {
+            btn.innerHTML = `<i class="bi bi-box-arrow-in-right me-2"></i>เข้าสู่ระบบและเริ่มใช้งาน`;
+        }
     } else {
         btn.disabled = true;
         btn.classList.replace('btn-success', 'btn-secondary');
-        if (!isMachineAvailable) {
-            btn.textContent = `❌ PC-${FIXED_PC_ID} ไม่ว่าง`;
+        if (!isAccessible) {
+            btn.textContent = `❌ เครื่องไม่ว่าง (${pc.status})`;
         } else {
-            btn.textContent = 'เข้าสู่ระบบและเริ่มใช้งาน';
+            btn.textContent = 'กรุณากรอกข้อมูลให้ครบ';
         }
     }
 }
 
-// ✅ ฟังก์ชันยืนยัน (ปรับปรุงการบันทึก Log ให้สมบูรณ์)
+// ✅ ฟังก์ชันยืนยันการเข้าใช้งาน (Check-in)
 function confirmCheckIn() {
     const pc = DB.getPCs().find(p => p.id == FIXED_PC_ID);
     
-    if (pc.status !== 'available') {
-        return alert("❌ ขออภัย เครื่องนี้ไม่พร้อมใช้งาน (สถานะ: " + pc.status + ")");
-    }
-
+    // 1. เตรียมข้อมูลผู้ใช้
     let finalUser = null;
     const usageType = document.querySelector('input[name="usageType"]:checked').value;
 
     if (activeTab === 'internal') {
         finalUser = verifiedUserData;
     } else {
-        // สร้าง Object ผู้ใช้ภายนอก
         finalUser = {
             id: document.getElementById('extIdCard').value.trim(),
             name: document.getElementById('extName').value.trim(),
@@ -182,11 +181,29 @@ function confirmCheckIn() {
         };
     }
 
-    // 1. อัปเดต Database
+    // 2. ตรวจสอบเงื่อนไขการจอง (Reserved Check)
+    if (pc.status === 'reserved') {
+        // เช็คว่าชื่อตรงกับที่จองไว้ไหม (เช็คแบบรวมๆ เผื่อพิมพ์ไม่ครบ)
+        const bookedName = pc.currentUser || ''; // Admin ใส่ชื่อไว้ตอนจอง
+        const currentName = finalUser.name || '';
+
+        // ถ้าชื่อไม่คล้ายกันเลย ให้แจ้งเตือน (ป้องกันคนอื่นมาเนียนเข้า)
+        // ใช้ .includes เพื่อเช็คว่า "สมชาย" อยู่ใน "นายสมชาย รักเรียน" หรือไม่
+        if (!currentName.includes(bookedName) && !bookedName.includes(currentName)) {
+            const confirmSteal = confirm(`⚠️ เครื่องนี้ถูกจองไว้สำหรับ: "${bookedName}"\nแต่ชื่อของคุณคือ: "${currentName}"\n\nคุณยืนยันที่จะเข้าใช้งานใช่หรือไม่?`);
+            if (!confirmSteal) return;
+        }
+    } else if (pc.status !== 'available') {
+        return alert(`❌ ไม่สามารถใช้งานได้ (สถานะ: ${pc.status})`);
+    }
+
+    // 3. เริ่ม Check-in (เปลี่ยนสถานะเป็น in_use)
     const startTime = Date.now();
+    
+    // บันทึกลง Database (เปลี่ยนจาก Reserved -> In Use)
     DB.updatePCStatus(FIXED_PC_ID, 'in_use', finalUser.name);
     
-    // 2. บันทึก Session
+    // สร้าง Session
     DB.setSession({ 
         user: finalUser, 
         pcId: FIXED_PC_ID, 
@@ -194,8 +211,7 @@ function confirmCheckIn() {
         usageType: usageType 
     });
 
-    // 3. ✅ บันทึก Log แบบละเอียด (Log History)
-    // ใช้ข้อมูลที่ดึงมาทั้งหมดเพื่อให้ Report และ Log History สมบูรณ์
+    // บันทึก Log
     DB.saveLog({ 
         action: 'START_SESSION', 
         userId: finalUser.id, 
@@ -206,14 +222,12 @@ function confirmCheckIn() {
         userRole: finalUser.role,
         pcId: FIXED_PC_ID, 
         startTime: new Date(startTime).toISOString(),
-        durationMinutes: 0, // 0 เมื่อเริ่มต้น
-        usedSoftware: pc.software, // บันทึก Software ที่เครื่องนี้ติดตั้ง
-        isAIUsed: pc.software.some(s => s.toLowerCase().includes('ai') || s.toLowerCase().includes('gpt') || s.toLowerCase().includes('gemini'))
+        durationMinutes: 0, 
+        usedSoftware: pc.installedSoftware || [], // ใช้ installedSoftware ให้ตรง
+        isAIUsed: (pc.installedSoftware || []).some(s => s.toLowerCase().includes('ai') || s.toLowerCase().includes('gpt'))
     });
 
-    // 4. แสดง Popup สำเร็จ
-    alert(`✅ ลงชื่อเข้าใช้งานสำเร็จ!\n\nสวัสดีคุณ ${finalUser.name}\nระบบจะเริ่มจับเวลาการใช้งาน ณ บัดนี้`);
-
-    // 5. ไปหน้าจับเวลา
+    // สำเร็จ!
+    alert(`✅ Check-in สำเร็จ!\nยินดีต้อนรับคุณ ${finalUser.name}`);
     window.location.href = 'timer.html';
 }
