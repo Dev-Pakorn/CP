@@ -92,13 +92,17 @@ function renderBookings() {
     });
 }
 
-// --- HELPER: CHECK OVERLAP ---
+// ... (ส่วน Render และ Modal คงเดิม) ...
+
+// ✅ ฟังก์ชันช่วย: เช็คเวลาทับซ้อน (ใช้ Logic เดิม)
 function checkTimeOverlap(pcId, date, start, end) {
     const bookings = DB.getBookings();
+    
     const toMinutes = (timeStr) => {
         const [h, m] = timeStr.split(':').map(Number);
         return h * 60 + m;
     };
+
     const newStart = toMinutes(start);
     const newEnd = toMinutes(end);
 
@@ -106,39 +110,170 @@ function checkTimeOverlap(pcId, date, start, end) {
         if (b.pcId === String(pcId) && b.date === date && b.status !== 'rejected') {
             const bStart = toMinutes(b.startTime);
             const bEnd = toMinutes(b.endTime);
-            return (newStart < bEnd && newEnd > bStart);
+            // ถ้าเวลาจบคนเก่า = เวลาเริ่มคนใหม่ ถือว่าไม่ซ้อน (อนุญาตให้จองต่อกันได้)
+            return (newStart < bEnd && newEnd > bStart); 
         }
         return false;
     });
 }
 
-// --- ACTIONS ---
+// ✅ ฟังก์ชันใหม่: คำนวณว่าตอนนี้ควรขึ้นชื่อใคร (Smart Update)
+function refreshPCStatus(pcId) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const bookings = DB.getBookings();
+    const pcs = DB.getPCs();
+    const pc = pcs.find(p => String(p.id) === String(pcId));
 
+    if (!pc) return;
+
+    // ถ้ากำลังใช้งานอยู่ (In Use) อย่าไปยุ่งกับเขา
+    if (pc.status === 'in_use') return;
+
+    // หาการจองทั้งหมดของ "เครื่องนี้" ใน "วันนี้" ที่ยังไม่ยกเลิก
+    const todayBookings = bookings.filter(b => 
+        b.pcId === String(pcId) && 
+        b.date === todayStr && 
+        b.status === 'approved'
+    );
+
+    if (todayBookings.length === 0) {
+        // ถ้าไม่มีการจองเลย หรือถูกยกเลิกหมด -> คืนสถานะว่าง
+        DB.updatePCStatus(pcId, 'available', null);
+        return;
+    }
+
+    // แปลงเวลาปัจจุบันเป็นนาที
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    
+    const toMinutes = (timeStr) => {
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+    };
+
+    // เรียงลำดับการจองตามเวลา
+    todayBookings.sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    // วนลูปหาว่า "ตอนนี้" ตรงกับช่วงเวลาของใคร
+    let activeBooking = null;
+    let nextBooking = null;
+
+    for (let b of todayBookings) {
+        const start = toMinutes(b.startTime);
+        const end = toMinutes(b.endTime);
+
+        if (currentMinutes >= start && currentMinutes < end) {
+            activeBooking = b; // เจอคนที่ต้องใช้อยู่ตอนนี้
+            break;
+        }
+        if (start > currentMinutes && !nextBooking) {
+            nextBooking = b; // เจอคนที่จะมาใช้คิวต่อไป
+        }
+    }
+
+    if (activeBooking) {
+        // ถึงเวลาจองแล้ว -> ขึ้นชื่อคนนั้นเลย
+        DB.updatePCStatus(pcId, 'reserved', activeBooking.userName);
+    } else if (nextBooking) {
+        // ยังไม่ถึงเวลา แต่มีคิวรอ -> ขึ้นชื่อคนถัดไปรอไว้ (หรือจะปล่อยว่างก็ได้ แล้วแต่ Policy)
+        // ในที่นี้ขอให้ขึ้นชื่อคนถัดไป เพื่อกันคนอื่นมาแย่ง
+        DB.updatePCStatus(pcId, 'reserved', nextBooking.userName);
+    } else {
+        // การจองวันนี้จบไปหมดแล้ว (เลยเวลาแล้ว) -> คืนสถานะว่าง
+        DB.updatePCStatus(pcId, 'available', null);
+    }
+}
+
+// ✅ แก้ไข saveBooking ให้เรียกใช้ refreshPCStatus แทนการอัปเดตตรงๆ
+function saveBooking() {
+    const pcId = document.getElementById('bkPcSelect').value;
+    const date = document.getElementById('bkDate').value;
+    const inputUser = document.getElementById('bkUser').value.trim();
+    
+    const timeSlotVal = document.getElementById('bkTimeSlot').value;
+    const [start, end] = timeSlotVal.split('-');
+    const type = document.getElementById('bkType').value;
+
+    if (!inputUser || !date) {
+        alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+        return;
+    }
+
+    // 1. Resolve ID to Name
+    let finalUserName = inputUser;
+    let finalUserId = 'AdminKey';
+    const regData = DB.checkRegAPI(inputUser);
+    if (regData) {
+        finalUserName = regData.prefix + regData.name;
+        finalUserId = inputUser;
+    }
+
+    // 2. Check AI Software
+    let selectedSoftware = [];
+    if (type === 'AI') {
+        const checkboxes = document.querySelectorAll('input[name="bkSoftware"]:checked');
+        selectedSoftware = Array.from(checkboxes).map(cb => cb.value);
+        if (selectedSoftware.length === 0) {
+            alert("⚠️ กรุณาเลือก AI/Software อย่างน้อย 1 รายการ");
+            return;
+        }
+    }
+
+    // 3. Check Overlap
+    const conflict = checkTimeOverlap(pcId, date, start, end);
+    if (conflict) {
+        alert(`❌ ไม่สามารถจองได้ (เวลาชนกัน)\nจองแล้ว: ${conflict.startTime} - ${conflict.endTime}\nโดย: ${conflict.userName}`);
+        return;
+    }
+
+    // 4. Save
+    const pcs = DB.getPCs();
+    const pc = pcs.find(p => String(p.id) === String(pcId));
+
+    const newBooking = {
+        id: 'b' + Date.now(),
+        userId: finalUserId,
+        userName: finalUserName,
+        pcId: pcId,
+        pcName: pc ? pc.name : 'Unknown',
+        date: date,
+        startTime: start,
+        endTime: end,
+        type: type,
+        bookedSoftware: selectedSoftware,
+        status: 'approved' 
+    };
+
+    let bookings = DB.getBookings();
+    bookings.push(newBooking);
+    DB.saveBookings(bookings);
+
+    // 5. Smart Update Status
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (date === todayStr) {
+        refreshPCStatus(pcId); // คำนวณใหม่ว่าควรขึ้นชื่อใคร
+        alert('✅ บันทึกการจองเรียบร้อย (อัปเดตสถานะตามคิว)');
+    } else {
+        alert('✅ บันทึกการจองล่วงหน้าสำเร็จ');
+    }
+
+    if(bookingModal) bookingModal.hide();
+    renderBookings();
+}
+
+// ✅ แก้ไข updateStatus ให้เรียกใช้ refreshPCStatus ด้วย
 function updateStatus(id, newStatus) {
     let bookings = DB.getBookings();
     const index = bookings.findIndex(b => b.id === id);
-    
     if (index !== -1) {
         bookings[index].status = newStatus;
         DB.saveBookings(bookings);
         
-        // ✅ แก้ไข: เพิ่ม Logic คืนสถานะเครื่องเมื่อ "ยกเลิก/ปฏิเสธ"
-        if (newStatus === 'rejected') {
-             const booking = bookings[index];
-             const todayStr = new Date().toISOString().split('T')[0];
-             
-             // ถ้าเป็นการจองของ "วันนี้"
-             if (booking.date === todayStr) {
-                 // ตรวจสอบก่อนว่าเครื่องยังเป็น "reserved" อยู่ไหม (เพื่อไม่ให้ไปเตะคนที่กำลังใช้งานจริง)
-                 const pcs = DB.getPCs();
-                 const pc = pcs.find(p => String(p.id) === String(booking.pcId));
-                 
-                 if (pc && pc.status === 'reserved') {
-                     // คืนสถานะเป็นว่าง
-                     DB.updatePCStatus(booking.pcId, 'available'); 
-                     // alert(`ยกเลิกการจองและคืนสถานะเครื่อง PC-${pc.name} เรียบร้อยแล้ว`);
-                 }
-             }
+        // ถ้ามีการเปลี่ยนแปลงสถานะ (ยกเลิก/อนุมัติ) ให้คำนวณหน้าจอใหม่
+        const booking = bookings[index];
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (booking.date === todayStr) {
+            refreshPCStatus(booking.pcId);
         }
         
         renderBookings();
@@ -219,29 +354,46 @@ function toggleBookingSoftware() {
 function saveBooking() {
     const pcId = document.getElementById('bkPcSelect').value;
     const date = document.getElementById('bkDate').value;
-    const userName = document.getElementById('bkUser').value.trim();
+    const inputUser = document.getElementById('bkUser').value.trim(); // รับค่าที่แอดมินกรอก
+    
+    // 1. ดึงค่า Time Slot และ Type
     const timeSlotVal = document.getElementById('bkTimeSlot').value;
     const [start, end] = timeSlotVal.split('-');
     const type = document.getElementById('bkType').value;
 
-    if (!userName || !date) {
+    if (!inputUser || !date) {
         alert("กรุณากรอกข้อมูลให้ครบถ้วน");
         return;
     }
 
-    // ✅ ตรวจสอบเงื่อนไข AI
+    // 2. 🔥 เพิ่ม Logic แปลงรหัสเป็นชื่อ (Resolve ID to Name)
+    let finalUserName = inputUser;
+    let finalUserId = 'AdminKey'; // ค่า Default ถ้าแอดมินพิมพ์ชื่อเอง
+
+    // ลองค้นหาในฐานข้อมูลว่าสิ่งที่พิมพ์มาเป็นรหัสนักศึกษาหรือไม่?
+    const regData = DB.checkRegAPI(inputUser);
+    
+    if (regData) {
+        // ✅ ถ้าเจอ: ใช้ชื่อจริงจากระบบ
+        finalUserName = regData.prefix + regData.name;
+        finalUserId = inputUser; // เก็บ ID นักศึกษาไว้ด้วย
+    } else {
+        // ❌ ถ้าไม่เจอ: ใช้ข้อความตามที่แอดมินพิมพ์ (เช่น "คุณวิชัย (Guest)")
+        finalUserName = inputUser;
+    }
+
+    // 3. ตรวจสอบเงื่อนไข AI (เหมือนเดิม)
     let selectedSoftware = [];
     if (type === 'AI') {
         const checkboxes = document.querySelectorAll('input[name="bkSoftware"]:checked');
         selectedSoftware = Array.from(checkboxes).map(cb => cb.value);
-        
         if (selectedSoftware.length === 0) {
-            alert("⚠️ กรุณาเลือก AI/Software อย่างน้อย 1 รายการ\n(เนื่องจากคุณเลือกประเภทเป็น AI Workstation)");
+            alert("⚠️ กรุณาเลือก AI/Software อย่างน้อย 1 รายการ");
             return;
         }
     }
 
-    // เช็คจองซ้อน
+    // 4. เช็คจองซ้อน (เหมือนเดิม)
     const conflict = checkTimeOverlap(pcId, date, start, end);
     if (conflict) {
         alert(`❌ ไม่สามารถจองได้! \nเครื่องนี้ถูกจองแล้วในช่วงเวลา ${conflict.startTime} - ${conflict.endTime}\nโดย: ${conflict.userName}`);
@@ -253,15 +405,15 @@ function saveBooking() {
 
     const newBooking = {
         id: 'b' + Date.now(),
-        userId: 'AdminKey',
-        userName: userName,
+        userId: finalUserId,   // ✅ บันทึก ID ที่ถูกต้อง
+        userName: finalUserName, // ✅ บันทึกชื่อจริงที่ถูกต้อง
         pcId: pcId,
         pcName: pc ? pc.name : 'Unknown',
         date: date,
         startTime: start,
         endTime: end,
         type: type,
-        bookedSoftware: selectedSoftware, // ✅ บันทึก Software ที่เลือกลง Booking
+        bookedSoftware: selectedSoftware,
         status: 'approved' 
     };
 
@@ -269,11 +421,12 @@ function saveBooking() {
     bookings.push(newBooking);
     DB.saveBookings(bookings);
 
-    // อัปเดตสถานะเครื่อง (เฉพาะจองของวันนี้)
+    // 5. อัปเดตสถานะเครื่อง (เฉพาะจองของวันนี้)
     const todayStr = new Date().toISOString().split('T')[0];
     if (date === todayStr) {
-        DB.updatePCStatus(pcId, 'reserved', userName);
-        alert('✅ บันทึกการจองสำเร็จ (อัปเดตสถานะหน้า Monitor แล้ว)');
+        // ✅ ส่ง "ชื่อจริง" ไปแสดงที่หน้า Monitor
+        DB.updatePCStatus(pcId, 'reserved', finalUserName);
+        alert(`✅ บันทึกการจองสำหรับ "${finalUserName}" สำเร็จ`);
     } else {
         alert('✅ บันทึกการจองล่วงหน้าสำเร็จ');
     }
