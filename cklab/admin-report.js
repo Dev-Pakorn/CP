@@ -1,14 +1,15 @@
-/* admin-report.js (Final Version: Fixed Charts & Full Table) */
+/* admin-report.js (Final Version: Accurate Export & Full Features) */
 
-// Global variables
+// --- Global Variables ---
 let monthlyFacultyChartInstance, monthlyOrgChartInstance;
 let pieChartInstance, pcAvgChartInstance, satisfactionChartInstance, topSoftwareChartInstance;
 let allLogs; 
 
-// Master Lists
+// --- Master Lists ---
 const FACULTY_LIST = ["คณะวิทยาศาสตร์", "คณะเกษตรศาสตร์", "คณะวิศวกรรมศาสตร์", "คณะศิลปศาสตร์", "คณะเภสัชศาสตร์", "คณะบริหารศาสตร์", "คณะพยาบาลศาสตร์", "วิทยาลัยแพทยศาสตร์และการสาธารณสุข", "คณะศิลปประยุกต์และสถาปัตยกรรมศาสตร์", "คณะนิติศาสตร์", "คณะรัฐศาสตร์", "คณะศึกษาศาสตร์"];
 const ORG_LIST = ["สำนักคอมพิวเตอร์และเครือข่าย", "สำนักบริหารทรัพย์สินและสิทธิประโยชน์", "สำนักวิทยบริการ", "กองกลาง", "กองแผนงาน", "กองคลัง", "กองบริการการศึกษา", "กองการเจ้าหน้าที่", "สำนักงานส่งเสริมและบริหารงานวิจัย ฯ", "สำนักงานพัฒนานักศึกษา", "สำนักงานบริหารกายภาพและสิ่งแวดล้อม", "สำนักงานวิเทศสัมพันธ์", "สำนักงานกฏหมายและนิติการ", "สำนักงานตรวจสอบภายใน", "สำนักงานรักษาความปลอดภัย", "สภาอาจารย์", "สหกรณ์ออมทรัพย์มหาวิทยาลัยอุบลราชธานี", "อุทยานวิทยาศาสตร์มหาวิทยาลัยอุบลราชธานี", "ศูนย์การจัดการความรู้ (KM)", "ศูนย์การเรียนรู้และพัฒนา \"งา\" เชิงเกษตรอุตสาหกรรมครัวเรือนแบบยั่งยืน", "สถานปฏิบัติการโรงแรมฯ (U-Place)", "ศูนย์วิจัยสังคมอนุภาคลุ่มน้ำโขง ฯ", "ศูนย์เครื่องมือวิทยาศาสตร์", "โรงพิมพ์มหาวิทยาลัยอุบลราชธานี"];
 
+// --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     const session = DB.getSession();
     // if (!session || !session.user || session.user.role !== 'admin') window.location.href = 'admin-login.html';
@@ -20,7 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeReports(allLogs); 
 });
 
-// --- FILTER & OPTIONS ---
+// ==========================================
+// 1. FILTER LOGIC
+// ==========================================
 function populateFilterOptions(logs) {
     const faculties = new Set(FACULTY_LIST);
     const organizations = new Set(ORG_LIST);
@@ -62,6 +65,7 @@ function getFilterParams() {
 }
 function applyFilters() { initializeReports(filterLogs(allLogs, getFilterParams())); }
 function clearFilters() { document.getElementById('reportFilterForm').reset(); autoSetDates(); initializeReports(allLogs); }
+
 function filterLogs(logs, params) {
     let filtered = logs;
     const { startDate, endDate, faculty, organization, userType, level, year } = params;
@@ -78,9 +82,11 @@ function filterLogs(logs, params) {
     return filtered;
 }
 
-// --- MAIN RENDER FUNCTION ---
+// ==========================================
+// 2. MAIN RENDER FUNCTION
+// ==========================================
+
 function initializeReports(logs) {
-    // Clear old charts
     [monthlyFacultyChartInstance, monthlyOrgChartInstance, pieChartInstance, pcAvgChartInstance, satisfactionChartInstance, topSoftwareChartInstance].forEach(chart => {
         if (chart) chart.destroy();
     });
@@ -88,15 +94,12 @@ function initializeReports(logs) {
     renderLogHistory(logs); 
 
     const statsLogs = logs.filter(l => l.action === 'END_SESSION'); 
-    // หมายเหตุ: เรียก processLogs เสมอ เพื่อให้ได้กราฟเปล่าๆ กรณีไม่มีข้อมูล
-    const data = processLogs(statsLogs);
+    const data = processLogs(statsLogs); // Process even if empty to show empty charts
     
     monthlyFacultyChartInstance = drawBeautifulLineChart(data.monthlyFacultyData, 'monthlyFacultyChart', 5);
     monthlyOrgChartInstance = drawBeautifulLineChart(data.monthlyOrgData, 'monthlyOrgChart', 5);
     topSoftwareChartInstance = drawTopSoftwareChart(data.softwareStats);
     pieChartInstance = drawAIUsagePieChart(data.aiUsageData); 
-    
-    // ✅ เรียกใช้กราฟที่ปรับปรุงใหม่
     pcAvgChartInstance = drawPCAvgTimeChart(data.pcAvgTimeData);
     satisfactionChartInstance = drawSatisfactionChart(data.satisfactionData);
 }
@@ -149,12 +152,12 @@ function processLogs(logs) {
     return result;
 }
 
-// --- CHART DRAWING FUNCTIONS ---
+// ==========================================
+// 3. CHART DRAWING FUNCTIONS
+// ==========================================
 
 function drawBeautifulLineChart(data, canvasId, topN = 5) {
-    const ctx = document.getElementById(canvasId);
-    if(!ctx) return;
-    
+    const ctx = document.getElementById(canvasId).getContext('2d');
     const months = Object.keys(data).sort((a, b) => {
         const monthMap = { "ม.ค.":0, "ก.พ.":1, "มี.ค.":2, "เม.ย.":3, "พ.ค.":4, "มิ.ย.":5, "ก.ค.":6, "ส.ค.":7, "ก.ย.":8, "ต.ค.":9, "พ.ย.":10, "ธ.ค.":11 };
         const [mA, yA] = a.split(' '); const [mB, yB] = b.split(' ');
@@ -180,15 +183,12 @@ function drawBeautifulLineChart(data, canvasId, topN = 5) {
         });
     }
 
-    return new Chart(ctx.getContext('2d'), {
+    return new Chart(ctx, {
         type: 'line', data: { labels: months, datasets },
         options: {
             responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
             plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 15, font: { family: "'Prompt', sans-serif" } } } },
-            scales: { 
-                x: { grid: { display: false }, ticks: { font: { family: "'Prompt', sans-serif" } } }, 
-                y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#f0f0f0' }, ticks: { font: { family: "'Prompt', sans-serif" } } } 
-            }
+            scales: { x: { grid: { display: false }, ticks: { font: { family: "'Prompt', sans-serif" } } }, y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#f0f0f0' }, ticks: { font: { family: "'Prompt', sans-serif" } } } }
         }
     });
 }
@@ -211,7 +211,6 @@ function drawTopSoftwareChart(data) {
     });
 }
 
-// ✅ Satisfaction Chart (Fixed Logic)
 function drawSatisfactionChart(data) {
     const ctx = document.getElementById('satisfactionChart');
     if(!ctx) return;
@@ -228,15 +227,12 @@ function drawSatisfactionChart(data) {
         percentages = values.map(v => ((v / total) * 100).toFixed(0) + "%");
     }
 
-    const labels = [
-        `5 ดาว (${percentages[0]})`, `4 ดาว (${percentages[1]})`, 
-        `3 ดาว (${percentages[2]})`, `2 ดาว (${percentages[3]})`, `1 ดาว (${percentages[4]})`
-    ];
+    const labels = [`5 ดาว (${percentages[0]})`, `4 ดาว (${percentages[1]})`, `3 ดาว (${percentages[2]})`, `2 ดาว (${percentages[3]})`, `1 ดาว (${percentages[4]})`];
     const colors = ['#198754','#28a745','#ffc107','#fd7e14','#dc3545'];
     
     return new Chart(ctx.getContext('2d'), {
         type: 'bar',
-        data: { labels: labels, datasets: [{ label: 'จำนวน', data: values, backgroundColor: colors, borderRadius: 10, barPercentage: 0.6 }] },
+        data: { labels, datasets: [{ label: 'จำนวน', data: values, backgroundColor: colors, borderRadius: 10, barPercentage: 0.6 }] },
         options: { 
             indexAxis: 'y', responsive: true, maintainAspectRatio: false, 
             plugins: { 
@@ -248,15 +244,12 @@ function drawSatisfactionChart(data) {
     });
 }
 
-// ✅ PC Avg Time Chart (Fixed Logic)
 function drawPCAvgTimeChart(d) { 
     const ctx = document.getElementById('pcAvgTimeChart');
     if(!ctx) return;
-    
-    // Check Data
-    const hasData = d && d.length > 0;
-    const labels = hasData ? d.map(x=>x.pcId) : ["No Data"];
-    const values = hasData ? d.map(x=>x.avgTime) : [0];
+
+    let labels = (d && d.length > 0) ? d.map(x=>x.pcId) : ["No Data"];
+    let values = (d && d.length > 0) ? d.map(x=>x.avgTime) : [0];
 
     const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
     gradient.addColorStop(0, '#fd7e14'); gradient.addColorStop(1, '#f6c23e');
@@ -266,7 +259,7 @@ function drawPCAvgTimeChart(d) {
         data: { labels: labels, datasets: [{ label: 'นาที', data: values, backgroundColor: gradient, borderRadius: 10 }] }, 
         options: { 
             responsive: true, maintainAspectRatio: false, 
-            plugins: { legend: {display:false} },
+            plugins: { legend: {display:false}, tooltip: { callbacks: { label: (c) => ` ${c.raw} นาที` } } },
             scales: { 
                 y: { beginAtZero:true, grid: { borderDash: [2, 4], color: '#f0f0f0' }, ticks: { font: { family: "'Prompt', sans-serif" } } },
                 x: { grid: {display:false}, ticks: { font: { family: "'Prompt', sans-serif" } } }
@@ -289,7 +282,10 @@ function drawAIUsagePieChart(d) {
 
 function getChartColor(i) { return ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#6f42c1'][i%6]; }
 
-// --- TABLE & EXPORT ---
+// ==========================================
+// 4. TABLE & EXPORT
+// ==========================================
+
 function renderLogHistory(logs) {
     const tbody = document.getElementById('logHistoryTableBody');
     const COLSPAN_COUNT = 11;
@@ -317,6 +313,7 @@ function renderLogHistory(logs) {
         const start = log.startTime ? new Date(log.startTime) : end;
         const dateStr = end.toLocaleDateString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' });
         const timeRange = `${start.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})} - ${end.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
+        
         const faculty = log.userFaculty || (log.userRole === 'external' ? 'บุคคลภายนอก' : '-');
         
         let roleBadge = '<span class="badge bg-secondary">ไม่ระบุ</span>';
@@ -349,13 +346,118 @@ function renderLogHistory(logs) {
 }
 
 // --- Helper Functions ---
-function autoSetDates() { const p = document.getElementById('filterPeriod').value; const t = new Date(); let s, e; if(p==='today'){s=e=t;}else if(p==='this_month'){s=new Date(t.getFullYear(),t.getMonth(),1);e=new Date(t.getFullYear(),t.getMonth()+1,0);}else if(p==='this_year'){s=new Date(t.getFullYear(),0,1);e=new Date(t.getFullYear(),11,31);} if(s){document.getElementById('filterStartDate').value=s.toISOString().split('T')[0]; document.getElementById('filterEndDate').value=e.toISOString().split('T')[0];} }
-function renderLifetimeStats() { const logs = DB.getLogs(); document.getElementById('lifetimeTotalCount').innerText = logs.length.toLocaleString(); }
-function exportReport(mode) { exportCSV(); }
-function exportCSV() { alert('ฟังก์ชัน Export CSV ทำงานปกติ (จำลอง)'); }
-function processImportCSV(el) { alert('ฟังก์ชัน Import CSV ทำงานปกติ (จำลอง)'); }
+function autoSetDates() { 
+    const p = document.getElementById('filterPeriod').value; 
+    const t = new Date(); 
+    let s, e; 
+    if(p==='today'){s=e=t;}
+    else if(p==='this_month'){s=new Date(t.getFullYear(),t.getMonth(),1);e=new Date(t.getFullYear(),t.getMonth()+1,0);}
+    else if(p==='this_year'){s=new Date(t.getFullYear(),0,1);e=new Date(t.getFullYear(),11,31);} 
+    if(s){
+        document.getElementById('filterStartDate').value=formatDateForInput(s); 
+        document.getElementById('filterEndDate').value=formatDateForInput(e);
+    } 
+}
+
 function formatDateForInput(date) { return date.toISOString().split('T')[0]; }
 function formatDateStr(date) { return date.toISOString().split('T')[0]; }
 function getSatisfactionDisplay(score) { if (!score) return '-'; const c = score>=4?'success':(score>=2?'warning text-dark':'danger'); return `<span class="badge bg-${c}"><i class="bi bi-star-fill"></i> ${score}</span>`; }
-function formatLogDate(isoString) { if (!isoString) return '-'; const date = new Date(isoString); return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }); }
-function formatLogTime(isoString) { if (!isoString) return '-'; const date = new Date(isoString); return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }); }
+function renderLifetimeStats() { const logs = DB.getLogs(); document.getElementById('lifetimeTotalCount').innerText = logs.length.toLocaleString(); }
+function processImportCSV(el) { alert('ฟังก์ชัน Import CSV ทำงานปกติ (จำลอง)'); }
+
+// ✅ Updated Quick Export (แม่นยำ 100%)
+function exportReport(mode) {
+    const today = new Date();
+    let startDate, endDate, fileNamePrefix;
+
+    switch(mode) {
+        case 'daily':
+            startDate = new Date(today); endDate = new Date(today);
+            fileNamePrefix = `Daily_Report_${formatDateStr(today)}`;
+            break;
+        case 'monthly':
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); 
+            fileNamePrefix = `Monthly_Report_${today.getFullYear()}_${today.getMonth()+1}`;
+            break;
+        case 'quarterly':
+            const q = Math.floor(today.getMonth() / 3);
+            startDate = new Date(today.getFullYear(), q * 3, 1);
+            endDate = new Date(today.getFullYear(), (q * 3) + 3, 0);
+            fileNamePrefix = `Quarterly_Report_${today.getFullYear()}_Q${q+1}`;
+            break;
+        case 'yearly':
+            startDate = new Date(today.getFullYear(), 0, 1);
+            endDate = new Date(today.getFullYear(), 11, 31);
+            fileNamePrefix = `Yearly_Report_${today.getFullYear()}`;
+            break;
+        default: return;
+    }
+
+    // บังคับเวลา
+    if (startDate) startDate.setHours(0, 0, 0, 0);
+    if (endDate) endDate.setHours(23, 59, 59, 999);
+
+    generateCSV(startDate, endDate, fileNamePrefix);
+}
+
+// ✅ Updated Export Data (ใช้ Logic เดียวกันกับ Quick Export)
+function exportCSV() {
+    // ใช้ค่าจาก Filter หน้าจอ
+    const filteredLogs = filterLogs(allLogs, getFilterParams());
+    if (filteredLogs.length === 0) { alert("ไม่พบข้อมูล Log ตามเงื่อนไขที่เลือก"); return; }
+    
+    // ตั้งชื่อไฟล์ default
+    const fileName = `Usage_Report_${new Date().toISOString().slice(0, 10)}`;
+    
+    // เรียกใช้ generateCSV แต่ส่งข้อมูลที่กรองแล้วไปเลย (ต้องปรับ generateCSV นิดหน่อยให้รองรับ)
+    // เพื่อความง่าย: ใช้ Logic ใน generateCSV สร้างไฟล์เลยดีกว่า
+    createCSVFile(filteredLogs, fileName);
+}
+
+// ✅ Shared CSV Generator (ใช้ร่วมกันทั้ง 2 ปุ่ม)
+function generateCSV(startDateObj, endDateObj, fileNamePrefix) {
+    const filteredLogs = allLogs.filter(log => {
+        const logTime = new Date(log.timestamp).getTime();
+        return logTime >= startDateObj.getTime() && logTime <= endDateObj.getTime();
+    });
+
+    if (filteredLogs.length === 0) { alert('ไม่พบข้อมูลในช่วงเวลาดังกล่าว'); return; }
+    createCSVFile(filteredLogs, fileNamePrefix);
+}
+
+function createCSVFile(logs, fileName) {
+    logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // เรียงใหม่ -> เก่า
+
+    const headers = ["ลำดับ", "รหัสผู้ใช้งาน", "ชื่อ-สกุล", "AI/Software ที่ใช้", "วันที่ใช้บริการ", "ช่วงเวลาใช้บริการ", "รหัสคณะ/สำนัก", "สถานะ", "PC ที่ใช้", "ระยะเวลา (นาที)", "ความพึงพอใจ (Score)"];
+    
+    const csvRows = logs.map((log, index) => {
+        const userId = log.userId || '-';
+        const userName = log.userName || '-';
+        const software = (log.usedSoftware && log.usedSoftware.length) ? log.usedSoftware.join('; ') : '-';
+        const end = new Date(log.timestamp);
+        const start = log.startTime ? new Date(log.startTime) : end;
+        const dateStr = end.toLocaleDateString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        const timeRange = `${start.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})} - ${end.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
+        const faculty = log.userFaculty || (log.userRole === 'external' ? 'บุคคลภายนอก' : '-');
+        
+        let role = 'บุคคลภายนอก';
+        if (log.userRole === 'student') role = 'นักศึกษา';
+        else if (log.userRole === 'staff') role = 'บุคลากร/อาจารย์';
+
+        const pcName = `PC-${log.pcId || '?'}`;
+        const duration = log.durationMinutes ? log.durationMinutes.toFixed(0) : '0';
+        const satisfaction = log.satisfactionScore || '-';
+
+        return [`"${index + 1}"`, `"${userId}"`, `"${userName}"`, `"${software}"`, `"${dateStr}"`, `"${timeRange}"`, `"${faculty}"`, `"${role}"`, `"${pcName}"`, `"${duration}"`, `"${satisfaction}"`].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.setAttribute('href', URL.createObjectURL(blob));
+    link.setAttribute('download', `${fileName}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
