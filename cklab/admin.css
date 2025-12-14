@@ -249,3 +249,38 @@ body {
     gap: 8px;
     white-space: nowrap;
 }
+
+/* Feedback Card Styling */
+.feedback-item {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-left: 5px solid #ddd; /* Default border color */
+}
+.feedback-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08) !important;
+}
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    font-size: 1.2rem;
+}
+/* Scrollbar สวยๆ */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #c1c1c1; 
+    border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8; 
+}
