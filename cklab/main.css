@@ -1,4 +1,4 @@
-/* main.css - Final Version */
+/* main.css - Final Version with Print Styles */
 @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&display=swap');
 
 :root {
@@ -272,4 +272,65 @@ hr {
 .feedback-box textarea {
     resize: none;
     background-color: #fff;
+}
+
+
+/* =========================================
+   PRINT STYLES (สำหรับหน้า Reports)
+   ========================================= */
+@media print {
+    /* ซ่อน Sidebar, ปุ่มกด, ช่องค้นหา, และฟอร์มตัวกรอง */
+    #sidebar-container, 
+    .btn, 
+    .d-flex.gap-2, /* ปุ่มกลุ่ม Import/Export */
+    form#reportFilterForm,
+    .card-header button { 
+        display: none !important; 
+    }
+
+    /* ขยายเนื้อหาให้เต็มกระดาษ */
+    .flex-grow-1 {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* ปรับพื้นหลังให้ขาวล้วน */
+    body, .bg-light {
+        background-color: white !important;
+    }
+
+    /* บังคับให้กราฟไม่ถูกตัดหน้า */
+    canvas {
+        max-width: 100% !important;
+        break-inside: avoid;
+    }
+    
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+        break-inside: avoid; /* พยายามไม่ให้การ์ดถูกตัดครึ่งหน้า */
+    }
+}
+
+/* main.css - เพิ่มส่วนท้ายไฟล์ */
+
+/* ทำให้ดาวดูมีมิติ */
+.drop-shadow-sm {
+    filter: drop-shadow(0px 1px 1px rgba(0,0,0,0.1));
+    margin-right: 2px;
+    font-size: 1.2rem;
+}
+
+/* ปรับพื้นที่ส่วนคะแนนให้ดูโปร่ง */
+#satisfactionAvgScore {
+    line-height: 1;
+    letter-spacing: -2px;
+}
+
+/* ทำให้ Progress bar ดูนุ่มนวล */
+.progress-bar {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }

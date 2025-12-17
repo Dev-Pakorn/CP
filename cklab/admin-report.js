@@ -1,10 +1,10 @@
-/* admin-report.js (Final Fixed: Date Filter & Lifetime Stats) */
+/* admin-report.js (Final: Dynamic Period & Auto-Refresh Realtime) */
 
 // --- Global Variables ---
 let monthlyFacultyChartInstance, monthlyOrgChartInstance;
 let pieChartInstance, pcAvgChartInstance, topSoftwareChartInstance;
-// satisfactionChartInstance ไม่ใช้แล้ว เพราะเปลี่ยนเป็น HTML Widget
-let allLogs; 
+let allLogs;
+let lastLogCount = 0; // ตัวแปรสำหรับเช็คว่าข้อมูลเปลี่ยนหรือไม่
 
 // --- Master Lists ---
 const FACULTY_LIST = ["คณะวิทยาศาสตร์", "คณะเกษตรศาสตร์", "คณะวิศวกรรมศาสตร์", "คณะศิลปศาสตร์", "คณะเภสัชศาสตร์", "คณะบริหารศาสตร์", "คณะพยาบาลศาสตร์", "วิทยาลัยแพทยศาสตร์และการสาธารณสุข", "คณะศิลปประยุกต์และสถาปัตยกรรมศาสตร์", "คณะนิติศาสตร์", "คณะรัฐศาสตร์", "คณะศึกษาศาสตร์"];
@@ -15,13 +15,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const session = DB.getSession();
     // if (!session || !session.user || session.user.role !== 'admin') window.location.href = 'admin-login.html';
     
+    // 1. โหลดข้อมูลครั้งแรก
     allLogs = DB.getLogs(); 
+    lastLogCount = allLogs.length; // จำจำนวน Log ปัจจุบันไว้เทียบ
+
     populateFilterOptions(allLogs); 
     autoSetDates(); // ตั้งค่าวันที่เริ่มต้น
     
-    renderLifetimeStats(); // ✅ ฟังก์ชันนี้กลับมาแล้ว!
-    initializeReports(allLogs); 
+    renderLifetimeStats(); 
+    applyFilters(); // วาดกราฟครั้งแรก
+
+    // 2. ✅ เริ่มระบบ Auto-Refresh (Real-time Check)
+    setInterval(checkForUpdates, 5000); // เช็คทุก 5 วินาที
 });
+
+// ฟังก์ชันเช็คว่ามีข้อมูลใหม่หรือไม่
+function checkForUpdates() {
+    const currentLogs = DB.getLogs();
+    
+    // ถ้าจำนวน Log ใน DB ไม่เท่ากับที่แสดงอยู่ (แปลว่ามีคน Check-out ใหม่)
+    if (currentLogs.length !== lastLogCount) {
+        // console.log("New data detected! Refreshing reports...");
+        
+        // อัปเดตข้อมูลในตัวแปรหลัก
+        allLogs = currentLogs;
+        lastLogCount = currentLogs.length;
+
+        // วาดกราฟและคำนวณตัวเลขใหม่ทั้งหมด (โดยยังคง Filter เดิมไว้)
+        applyFilters();
+        renderLifetimeStats();
+    }
+}
 
 // ==========================================
 // 1. FILTER LOGIC
@@ -65,25 +89,47 @@ function getFilterParams() {
         userType: document.getElementById('filterUserType').value,
         level: document.getElementById('filterLevel').value,
         year: document.getElementById('filterYear').value,
+        period: document.getElementById('filterPeriod').value 
     };
 }
 
-function applyFilters() { initializeReports(filterLogs(allLogs, getFilterParams())); }
+function applyFilters() { 
+    const params = getFilterParams();
+    const filtered = filterLogs(allLogs, params);
+    
+    let mode = 'monthly'; 
+    let textMode = 'รายเดือน'; // ข้อความที่จะแสดง
+
+    if (params.period.includes('daily')) {
+        mode = 'daily';
+        textMode = 'รายวัน';
+    } else if (params.period.includes('yearly')) {
+        mode = 'yearly';
+        textMode = 'รายปี';
+    }
+    
+    // ✅ อัปเดตหัวข้อกราฟ
+    const t1 = document.getElementById('chartTitle1');
+    const t2 = document.getElementById('chartTitle2');
+    if(t1) t1.innerText = `1.1 สถิติผู้ใช้งาน${textMode} (คณะ/วิทยาลัย)`;
+    if(t2) t2.innerText = `1.2 สถิติผู้ใช้งาน${textMode} (หน่วยงาน/อื่นๆ)`;
+
+    initializeReports(filtered, mode); 
+}
 
 function clearFilters() { 
     document.getElementById('reportFilterForm').reset(); 
-    autoSetDates(); // Reset วันที่กลับมาเป็นค่า Default
-    initializeReports(allLogs); 
+    autoSetDates(); 
+    applyFilters(); 
 }
 
 function filterLogs(logs, params) {
     let filtered = logs;
     const { startDate, endDate, faculty, organization, userType, level, year } = params;
     
-    // ✅ แก้ไข: เทียบวันที่แบบ String (YYYY-MM-DD) เพื่อความแม่นยำ 100% ตัดปัญหา Timezone
     if (startDate) {
         filtered = filtered.filter(log => {
-            const logDate = new Date(log.timestamp).toLocaleDateString('en-CA'); // ได้ YYYY-MM-DD ตามเวลาเครื่อง
+            const logDate = new Date(log.timestamp).toLocaleDateString('en-CA');
             return logDate >= startDate;
         });
     }
@@ -109,7 +155,7 @@ function filterLogs(logs, params) {
 // 2. MAIN RENDER FUNCTION
 // ==========================================
 
-function initializeReports(logs) {
+function initializeReports(logs, mode = 'monthly') {
     // Clear old charts
     [monthlyFacultyChartInstance, monthlyOrgChartInstance, pieChartInstance, pcAvgChartInstance, topSoftwareChartInstance].forEach(chart => {
         if (chart) chart.destroy();
@@ -118,23 +164,23 @@ function initializeReports(logs) {
     renderLogHistory(logs); // Render Table
 
     const statsLogs = logs.filter(l => l.action === 'END_SESSION'); 
-    const data = processLogs(statsLogs);
+    const data = processLogs(statsLogs, mode);
     
-    // Draw All Charts
-    monthlyFacultyChartInstance = drawBeautifulLineChart(data.monthlyFacultyData, 'monthlyFacultyChart', 5);
-    monthlyOrgChartInstance = drawBeautifulLineChart(data.monthlyOrgData, 'monthlyOrgChart', 5);
+    // Draw All Charts with mode
+    monthlyFacultyChartInstance = drawBeautifulLineChart(data.monthlyFacultyData, 'monthlyFacultyChart', 5, mode);
+    monthlyOrgChartInstance = drawBeautifulLineChart(data.monthlyOrgData, 'monthlyOrgChart', 5, mode);
+    
     topSoftwareChartInstance = drawTopSoftwareChart(data.softwareStats);
     pieChartInstance = drawAIUsagePieChart(data.aiUsageData); 
     pcAvgChartInstance = drawPCAvgTimeChart(data.pcAvgTimeData);
     
-    // Call Satisfaction Widget (HTML Version)
+    // ✅ ฟังก์ชันนี้จะถูกเรียกใหม่ทุกครั้งที่ Auto-Refresh ทำงาน
     drawSatisfactionChart(data.satisfactionData);
     
-    // Render Comments Widget
     renderFeedbackComments(statsLogs);
 }
 
-function processLogs(logs) {
+function processLogs(logs, mode) {
     const result = {
         monthlyFacultyData: {}, monthlyOrgData: {}, aiUsageData: { ai: 0, nonAI: 0 },
         pcAvgTimeData: [], satisfactionData: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, total: 0 },
@@ -143,7 +189,18 @@ function processLogs(logs) {
     const pcUsageMap = new Map();
 
     logs.forEach(log => {
-        const monthYear = new Date(log.timestamp).toLocaleDateString('th-TH', { year: 'numeric', month: 'short' });
+        const dateObj = new Date(log.timestamp);
+        let timeKey;
+
+        // Logic การเปลี่ยนแกน X ตามโหมด
+        if (mode === 'daily') {
+            timeKey = dateObj.getDate().toString(); 
+        } else if (mode === 'yearly') {
+            timeKey = (dateObj.getFullYear() + 543).toString();
+        } else {
+            timeKey = dateObj.toLocaleDateString('th-TH', { year: '2-digit', month: 'short' });
+        }
+
         const faculty = log.userFaculty || 'Unknown';
         
         let target = null;
@@ -151,8 +208,8 @@ function processLogs(logs) {
         else if (faculty !== "บุคคลภายนอก") target = result.monthlyOrgData;
 
         if (target) {
-            if (!target[monthYear]) target[monthYear] = {};
-            target[monthYear][faculty] = (target[monthYear][faculty] || 0) + 1;
+            if (!target[timeKey]) target[timeKey] = {};
+            target[timeKey][faculty] = (target[timeKey][faculty] || 0) + 1;
         }
 
         if (log.isAIUsed) result.aiUsageData.ai++; else result.aiUsageData.nonAI++;
@@ -169,6 +226,7 @@ function processLogs(logs) {
         pcUsageMap.get(pcId).total += (log.durationMinutes || 0);
         pcUsageMap.get(pcId).count++;
 
+        // ✅ นับคะแนน Satisfaction ตรงนี้ (นับเฉพาะ Log ที่ผ่าน Filter มาแล้ว)
         if (log.satisfactionScore) {
             const score = parseInt(log.satisfactionScore);
             if (score >= 1 && score <= 5) {
@@ -186,43 +244,52 @@ function processLogs(logs) {
 // 3. CHART DRAWING FUNCTIONS
 // ==========================================
 
-function drawBeautifulLineChart(data, canvasId, topN = 5) {
+function drawBeautifulLineChart(data, canvasId, topN = 5, mode = 'monthly') {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     
-    const months = Object.keys(data).sort((a, b) => {
-        const monthMap = { "ม.ค.":0, "ก.พ.":1, "มี.ค.":2, "เม.ย.":3, "พ.ค.":4, "มิ.ย.":5, "ก.ค.":6, "ส.ค.":7, "ก.ย.":8, "ต.ค.":9, "พ.ย.":10, "ธ.ค.":11 };
-        const [mA, yA] = a.split(' '); const [mB, yB] = b.split(' ');
-        return new Date(parseInt(yA)-543, monthMap[mA]) - new Date(parseInt(yB)-543, monthMap[mB]);
+    // Sort logic ตามโหมด
+    const keys = Object.keys(data).sort((a, b) => {
+        if (mode === 'daily') {
+            return parseInt(a) - parseInt(b);
+        } else if (mode === 'yearly') {
+            return parseInt(a) - parseInt(b);
+        } else {
+            const monthMap = { "ม.ค.":0, "ก.พ.":1, "มี.ค.":2, "เม.ย.":3, "พ.ค.":4, "มิ.ย.":5, "ก.ค.":6, "ส.ค.":7, "ก.ย.":8, "ต.ค.":9, "พ.ย.":10, "ธ.ค.":11 };
+            const [mA, yA] = a.split(' '); const [mB, yB] = b.split(' ');
+            if(!yA || !yB) return 0;
+            if (yA !== yB) return parseInt(yA) - parseInt(yB);
+            return monthMap[mA] - monthMap[mB];
+        }
     });
 
     const totals = {};
-    months.forEach(m => Object.keys(data[m]).forEach(k => totals[k] = (totals[k]||0) + data[m][k]));
+    keys.forEach(k => Object.keys(data[k]).forEach(subKey => totals[subKey] = (totals[subKey]||0) + data[k][subKey]));
     const topKeys = Object.keys(totals).sort((a,b) => totals[b] - totals[a]).slice(0, topN);
     const others = Object.keys(totals).filter(k => !topKeys.includes(k));
 
     const datasets = topKeys.map((k, i) => ({
-        label: k, data: months.map(m => data[m][k] || 0),
+        label: k, data: keys.map(m => data[m][k] || 0),
         borderColor: getChartColor(i), backgroundColor: getChartColor(i),
         borderWidth: 2.5, tension: 0.4, pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: '#fff', pointBorderWidth: 2, fill: false
     }));
     
     if (others.length > 0) {
         datasets.push({
-            label: 'อื่นๆ', data: months.map(m => others.reduce((s, k) => s + (data[m][k]||0), 0)),
+            label: 'อื่นๆ', data: keys.map(m => others.reduce((s, k) => s + (data[m][k]||0), 0)),
             borderColor: '#adb5bd', backgroundColor: '#adb5bd',
             borderWidth: 2, borderDash: [5, 5], tension: 0.4, pointRadius: 0, fill: false
         });
     }
 
     return new Chart(ctx.getContext('2d'), {
-        type: 'line', data: { labels: months, datasets },
+        type: 'line', data: { labels: keys, datasets },
         options: {
             responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
             plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 15, font: { family: "'Prompt', sans-serif" } } } },
             scales: { 
                 x: { grid: { display: false }, ticks: { font: { family: "'Prompt', sans-serif" } } }, 
-                y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#f0f0f0' }, ticks: { font: { family: "'Prompt', sans-serif" } } } 
+                y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#f0f0f0' }, ticks: { font: { family: "'Prompt', sans-serif" }, stepSize: 1 } } 
             }
         }
     });
@@ -247,51 +314,96 @@ function drawTopSoftwareChart(data) {
 }
 
 // Satisfaction Widget (Progress Bars)
+// admin-report.js
+
 function drawSatisfactionChart(data) {
     const total = data.total || 0;
-    let avgScore = "0.0";
+    let avgScore = 0.0;
     
     if (total > 0) {
         const weightedSum = (data[5]*5) + (data[4]*4) + (data[3]*3) + (data[2]*2) + (data[1]*1);
-        avgScore = (weightedSum / total).toFixed(1); 
+        avgScore = (weightedSum / total); 
     }
 
+    const avgDisplay = avgScore.toFixed(1);
+
+    // 1. อัปเดตส่วนคะแนนรวม (Big Number)
     const scoreEl = document.getElementById('satisfactionAvgScore');
     const countEl = document.getElementById('satisfactionTotalCount');
     const starsEl = document.getElementById('satisfactionStars');
     
-    if(scoreEl) scoreEl.innerText = avgScore;
-    if(countEl) countEl.innerText = `/ 5.0 (จาก ${total.toLocaleString()} คน)`;
-    
-    if(starsEl) {
-        let starsHtml = '';
-        for(let i=1; i<=5; i++) {
-            if(i <= Math.round(avgScore)) starsHtml += '<i class="bi bi-star-fill"></i>';
-            else starsHtml += '<i class="bi bi-star text-muted opacity-25"></i>';
-        }
-        starsEl.innerHTML = starsHtml;
-    }
+    if(scoreEl) {
+        // เปลี่ยนสีตัวเลขตามเกณฑ์
+        let scoreClass = 'text-dark';
+        let scoreText = 'ไม่มีข้อมูล';
+        
+        if (avgScore >= 4.5) { scoreClass = 'text-success'; scoreText = 'ยอดเยี่ยม (Excellent)'; }
+        else if (avgScore >= 3.5) { scoreClass = 'text-primary'; scoreText = 'ดีมาก (Very Good)'; }
+        else if (avgScore >= 2.5) { scoreClass = 'text-warning'; scoreText = 'ปานกลาง (Fair)'; }
+        else if (avgScore > 0) { scoreClass = 'text-danger'; scoreText = 'ควรปรับปรุง (Poor)'; }
 
+        scoreEl.className = `fw-bold mb-0 me-3 ${scoreClass}`;
+        scoreEl.style.fontSize = "4rem"; // ขยายตัวเลขให้ใหญ่สะใจ
+        scoreEl.innerText = avgDisplay;
+
+        // เพิ่ม Text คำบรรยายใต้ดาว
+        let sentimentHtml = `<div class="fw-bold ${scoreClass}" style="font-size: 1.1rem;">${scoreText}</div>`;
+        
+        if(starsEl) {
+            let starsHtml = '';
+            for(let i=1; i<=5; i++) {
+                // ดาวเต็มดวง / ครึ่งดวง / ดาวว่าง
+                if (i <= Math.floor(avgScore)) {
+                    starsHtml += '<i class="bi bi-star-fill text-warning drop-shadow-sm"></i>';
+                } else if (i === Math.ceil(avgScore) && !Number.isInteger(avgScore)) {
+                    starsHtml += '<i class="bi bi-star-half text-warning drop-shadow-sm"></i>';
+                } else {
+                    starsHtml += '<i class="bi bi-star-fill text-muted opacity-25"></i>';
+                }
+            }
+            starsEl.innerHTML = starsHtml + sentimentHtml;
+        }
+    }
+    
+    if(countEl) countEl.innerText = `จากผู้ใช้งานทั้งหมด ${total.toLocaleString()} คน`;
+
+    // 2. อัปเดตส่วนกราฟแท่ง (Distribution Bars)
     const container = document.getElementById('satisfactionProgressBars');
     if(!container) return;
 
     container.innerHTML = '';
-    const colors = { 5: 'success', 4: 'primary', 3: 'info', 2: 'warning', 1: 'danger' };
+    
+    // Config สีของแต่ละบาร์ให้นุ่มนวล (Soft Colors)
+    const barConfigs = {
+        5: { color: '#2ecc71', label: '5' }, // เขียวมรกต
+        4: { color: '#3498db', label: '4' }, // ฟ้า
+        3: { color: '#f1c40f', label: '3' }, // เหลือง
+        2: { color: '#e67e22', label: '2' }, // ส้ม
+        1: { color: '#e74c3c', label: '1' }  // แดง
+    };
 
     for(let i=5; i>=1; i--) {
         const count = data[i] || 0;
         const percent = total > 0 ? ((count / total) * 100).toFixed(0) : 0;
-        const color = colors[i];
+        const config = barConfigs[i];
 
         const html = `
-            <div class="row align-items-center mb-2">
-                <div class="col-2 text-end small fw-bold text-muted">${i} ดาว</div>
-                <div class="col-8">
-                    <div class="progress" style="height: 8px; border-radius: 4px; background-color: #f0f0f0;">
-                        <div class="progress-bar bg-${color}" role="progressbar" style="width: ${percent}%"></div>
+            <div class="d-flex align-items-center mb-2" style="height: 24px;">
+                <div class="d-flex align-items-center justify-content-end me-2" style="width: 35px;">
+                    <span class="small fw-bold text-muted me-1">${i}</span>
+                    <i class="bi bi-star-fill text-warning small"></i>
+                </div>
+                
+                <div class="flex-grow-1 progress" style="height: 8px; background-color: #f1f3f5; border-radius: 10px; overflow: hidden;">
+                    <div class="progress-bar" role="progressbar" 
+                         style="width: ${percent}%; background-color: ${config.color}; border-radius: 10px; transition: width 1s ease;">
                     </div>
                 </div>
-                <div class="col-2 small text-muted text-end">${percent}%</div>
+
+                <div class="ms-2 d-flex justify-content-between" style="width: 60px;">
+                    <span class="small fw-bold text-dark">${percent}%</span>
+                    <span class="small text-muted" style="font-size: 0.75rem;">(${count})</span>
+                </div>
             </div>
         `;
         container.insertAdjacentHTML('beforeend', html);
@@ -524,8 +636,9 @@ function createCSVFile(logs, fileName) {
     document.body.removeChild(link);
 }
 
-// ✅ 5. LIFETIME STATS (Fixed & Restored!)
+// 5. LIFETIME STATS
 function renderLifetimeStats() {
+    // ฟังก์ชันนี้จะดึง Log ใหม่อัตโนมัติ เพราะเราเรียก DB.getLogs() ข้างใน
     const logs = DB.getLogs();
     const total = logs.length;
     
@@ -549,7 +662,6 @@ function renderLifetimeStats() {
     }
 }
 
-// ✅ ฟังก์ชัน autoSetDates ปรับปรุงใหม่
 function autoSetDates() { 
     const periodSelect = document.getElementById('filterPeriod');
     if (!periodSelect) return; 
@@ -573,17 +685,16 @@ function autoSetDates() {
         e = new Date(t.getFullYear(), (q * 3) + 3, 0);
     } else if (p === 'yearly_custom') {
         // รายปี (2025-ปัจจุบัน)
-        s = new Date(2025, 0, 1); // เริ่ม 1 ม.ค. 2025
-        e = t; // ถึงวันนี้
+        s = new Date(2025, 0, 1); 
+        e = t; 
     } else if (p === 'custom') {
-        return; // ไม่ทำอะไร ให้ User เลือกเอง
+        return; 
     }
 
     if (s && e) {
         document.getElementById('filterStartDate').value = formatDateForInput(s); 
         document.getElementById('filterEndDate').value = formatDateForInput(e);
-        // เรียก applyFilters ทันทีเพื่อให้ข้อมูลอัปเดต (Optional)
-        // applyFilters(); 
+        applyFilters(); 
     } 
 }
 

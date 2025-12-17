@@ -10,20 +10,6 @@
     <link href="admin.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     
-    <style>
-        /* ปรับแต่งตารางเพิ่มเติมเฉพาะหน้านี้ */
-        .table-custom thead th {
-            background-color: #0d6efd !important;
-            color: white !important;
-            font-weight: 500;
-            border-bottom: none;
-            vertical-align: middle;
-            white-space: nowrap;
-        }
-        .table-custom tbody tr:nth-of-type(odd) { background-color: #f8faff; }
-        .table-custom tbody tr:hover { background-color: #e7f1ff; }
-        .table-responsive { overflow-x: auto; }
-    </style>
 </head>
 <body class="bg-light">
 
@@ -174,13 +160,13 @@
             <div class="row g-4">
                 <div class="col-12">
                     <div class="card border-0 shadow-sm p-3">
-                        <h6 class="fw-bold text-dark mb-3">1.1 สถิติผู้ใช้งานรายเดือน (คณะ/วิทยาลัย)</h6>
+                        <h6 class="fw-bold text-dark mb-3" id="chartTitle1">1.1 สถิติผู้ใช้งานรายเดือน (คณะ/วิทยาลัย)</h6>
                         <div class="bg-light p-3 rounded" style="height: 400px;"><canvas id="monthlyFacultyChart"></canvas></div>
                     </div>
                 </div>
                 <div class="col-12">
                     <div class="card border-0 shadow-sm p-3">
-                        <h6 class="fw-bold text-dark mb-3">1.2 สถิติผู้ใช้งานรายเดือน (หน่วยงาน/อื่นๆ)</h6>
+                        <h6 class="fw-bold text-dark mb-3" id="chartTitle2">1.2 สถิติผู้ใช้งานรายเดือน (หน่วยงาน/อื่นๆ)</h6>
                         <div class="bg-light p-3 rounded" style="height: 400px;"><canvas id="monthlyOrgChart"></canvas></div>
                     </div>
                 

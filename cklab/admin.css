@@ -466,3 +466,17 @@ body {
     height: 350px;
     position: relative;
 }
+
+
+        /* ปรับแต่งตารางเพิ่มเติมเฉพาะหน้านี้ */
+        .table-custom thead th {
+            background-color: #0d6efd !important;
+            color: white !important;
+            font-weight: 500;
+            border-bottom: none;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        .table-custom tbody tr:nth-of-type(odd) { background-color: #f8faff; }
+        .table-custom tbody tr:hover { background-color: #e7f1ff; }
+        .table-responsive { overflow-x: auto; }
