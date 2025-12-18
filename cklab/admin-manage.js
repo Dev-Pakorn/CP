@@ -255,9 +255,21 @@ function savePC() {
 
 // --- 5. DELETE DATA (ลบ) ---
 function deletePC(id) {
-    if(confirm('ยืนยันการลบเครื่องนี้?')) {
-        let pcs = DB.getPCs().filter(p => p.id != id);
+    if(confirm('ยืนยันลบเครื่องนี้?')) {
+        let pcs = DB.getPCs();
+        pcs = pcs.filter(p => p.id !== id);
         DB.savePCs(pcs);
-        renderPCTable();
+
+        // ✅ เพิ่มส่วนนี้: ลบ Booking ที่ค้างอยู่ของเครื่องนี้ด้วย
+        let bookings = DB.getBookings();
+        const initialCount = bookings.length;
+        bookings = bookings.filter(b => b.pcId !== id); 
+        
+        if (bookings.length < initialCount) {
+            DB.saveBookings(bookings);
+            console.log(`Auto-deleted bookings for PC-${id}`);
+        }
+
+        renderPCList();
     }
 }

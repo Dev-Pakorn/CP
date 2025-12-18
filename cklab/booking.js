@@ -13,19 +13,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 2. ค้นหาข้อมูลเครื่องจาก DB (เพื่อให้แน่ใจว่าเครื่องยังว่างอยู่)
+// ... (ส่วนต้นไฟล์เหมือนเดิม)
+
+    // 2. ค้นหาข้อมูลเครื่อง
     const pcs = DB.getPCs();
     selectedPC = pcs.find(p => p.id == currentSession.pcId);
 
-    // กรณีเครื่องหาย หรือถูกคนอื่นแย่งจองไปเสี้ยววินาทีก่อนหน้านี้
     if (!selectedPC) {
         alert('เกิดข้อผิดพลาดไม่พบเครื่องนี้');
         window.location.href = 'map.html';
         return;
     }
+
+    // ✅ แก้ไขตรงนี้: เช็คว่าถ้าจองไว้ (Reserved) และเป็นชื่อเรา ให้ผ่านได้
     if (selectedPC.status !== 'available') {
-        alert('ขออภัย เครื่องนี้เพิ่งถูกจองไป กรุณาเลือกเครื่องใหม่');
-        window.location.href = 'map.html';
-        return;
+        const isMyReservation = (selectedPC.status === 'reserved' && selectedPC.currentUser === currentSession.user.name);
+        
+        if (!isMyReservation) {
+            alert('ขออภัย เครื่องนี้เพิ่งถูกจองหรือใช้งานไป กรุณาเลือกเครื่องใหม่');
+            window.location.href = 'map.html';
+            return;
+        }
     }
 
     // 3. แสดงผลหน้าจอ
