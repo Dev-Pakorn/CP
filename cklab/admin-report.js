@@ -180,29 +180,105 @@ function initializeReports(logs, mode = 'monthly') {
     renderFeedbackComments(statsLogs);
 }
 
+// admin-report.js
+
+// 1. เพิ่มฟังก์ชัน updateQuickStats เพื่ออัปเดต DOM
+function updateQuickStats(stats) {
+    const elTopPC = document.getElementById('statTopPC');
+    const elTopPCTime = document.getElementById('statTopPCTime');
+    const elAvgTime = document.getElementById('statAvgTime');
+
+    if (elTopPC) elTopPC.innerText = stats.topPC.name;
+    if (elTopPCTime) elTopPCTime.innerText = stats.topPC.totalHours > 0 ? `(รวม ${stats.topPC.totalHours} ชม.)` : '';
+    
+    // แสดงเวลาเฉลี่ย: ถ้าเกิน 1 ชม. ให้โชว์เป็น ชม. ถ้าไม่ถึงให้โชว์เป็นนาที
+    if (elAvgTime) {
+        if (stats.avgTime.minutes >= 60) {
+            elAvgTime.innerText = `${stats.avgTime.hours} ชม.`;
+        } else {
+            elAvgTime.innerText = `${stats.avgTime.minutes} นาที`;
+        }
+    }
+}
+
+// 1. แก้ไขฟังก์ชัน updateQuickStats เพื่อแสดงผลเป็น "ค่าเฉลี่ย"
+function updateQuickStats(stats) {
+    const elTopPC = document.getElementById('statTopPC');
+    const elTopPCTime = document.getElementById('statTopPCTime');
+    const elAvgTime = document.getElementById('statAvgTime');
+
+    if (elTopPC) elTopPC.innerText = stats.topPC.name;
+    
+    // ✅ แก้ไข: เปลี่ยนคำแสดงผลจาก "รวม...ชม." เป็น "เฉลี่ย...นาที"
+    if (elTopPCTime) {
+        elTopPCTime.innerText = stats.topPC.value > 0 
+            ? `(เฉลี่ย ${stats.topPC.value} นาที)` 
+            : '';
+    }
+    
+    if (elAvgTime) {
+        if (stats.avgTime.minutes >= 60) {
+            elAvgTime.innerText = `${stats.avgTime.hours} ชม.`;
+        } else {
+            elAvgTime.innerText = `${stats.avgTime.minutes} นาที`;
+        }
+    }
+}
+
+// 2. initializeReports (เหมือนเดิม แต่รวมมาให้ครบชุด)
+function initializeReports(logs, mode = 'monthly') {
+    [monthlyFacultyChartInstance, monthlyOrgChartInstance, pieChartInstance, pcAvgChartInstance, topSoftwareChartInstance].forEach(chart => {
+        if (chart) chart.destroy();
+    });
+
+    renderLogHistory(logs);
+
+    const statsLogs = logs.filter(l => l.action === 'END_SESSION'); 
+    const data = processLogs(statsLogs, mode);
+    
+    updateQuickStats(data.quickStats); // อัปเดตการ์ดสถิติ
+
+    monthlyFacultyChartInstance = drawBeautifulLineChart(data.monthlyFacultyData, 'monthlyFacultyChart', 5, mode);
+    monthlyOrgChartInstance = drawBeautifulLineChart(data.monthlyOrgData, 'monthlyOrgChart', 5, mode);
+    topSoftwareChartInstance = drawTopSoftwareChart(data.softwareStats);
+    pieChartInstance = drawAIUsagePieChart(data.aiUsageData); 
+    pcAvgChartInstance = drawPCAvgTimeChart(data.pcAvgTimeData);
+    drawSatisfactionChart(data.satisfactionData);
+    renderFeedbackComments(statsLogs);
+}
+
+// 3. แก้ไข processLogs ให้คำนวณหา Max Average แทน Max Total
 function processLogs(logs, mode) {
     const result = {
         monthlyFacultyData: {}, monthlyOrgData: {}, aiUsageData: { ai: 0, nonAI: 0 },
         pcAvgTimeData: [], satisfactionData: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, total: 0 },
-        softwareStats: {}
+        softwareStats: {},
+        quickStats: { 
+            // ✅ เปลี่ยนชื่อตัวแปรจาก totalHours เป็น value เพื่อความยืดหยุ่น
+            topPC: { name: '-', value: 0 }, 
+            avgTime: { hours: 0, minutes: 0 } 
+        }
     };
+    
     const pcUsageMap = new Map();
+    const allPCs = DB.getPCs(); 
+    
+    let globalTotalMinutes = 0;
+    let globalSessionCount = 0;
+
+    allPCs.forEach(pc => {
+        pcUsageMap.set(String(pc.id), { total: 0, count: 0 });
+    });
 
     logs.forEach(log => {
+        // ... (Logic การนับกราฟต่างๆ คงเดิม) ...
         const dateObj = new Date(log.timestamp);
         let timeKey;
-
-        // Logic การเปลี่ยนแกน X ตามโหมด
-        if (mode === 'daily') {
-            timeKey = dateObj.getDate().toString(); 
-        } else if (mode === 'yearly') {
-            timeKey = (dateObj.getFullYear() + 543).toString();
-        } else {
-            timeKey = dateObj.toLocaleDateString('th-TH', { year: '2-digit', month: 'short' });
-        }
+        if (mode === 'daily') timeKey = dateObj.getDate().toString(); 
+        else if (mode === 'yearly') timeKey = (dateObj.getFullYear() + 543).toString();
+        else timeKey = dateObj.toLocaleDateString('th-TH', { year: '2-digit', month: 'short' });
 
         const faculty = log.userFaculty || 'Unknown';
-        
         let target = null;
         if (FACULTY_LIST.includes(faculty) || faculty.startsWith("คณะ") || faculty.startsWith("วิทยาลัย")) target = result.monthlyFacultyData;
         else if (faculty !== "บุคคลภายนอก") target = result.monthlyOrgData;
@@ -221,12 +297,17 @@ function processLogs(logs, mode) {
             });
         }
 
-        const pcId = log.pcId || 'Unknown';
-        if (!pcUsageMap.has(pcId)) pcUsageMap.set(pcId, { total: 0, count: 0 });
-        pcUsageMap.get(pcId).total += (log.durationMinutes || 0);
-        pcUsageMap.get(pcId).count++;
+        const pcId = String(log.pcId);
+        const duration = log.durationMinutes || 0;
+        
+        if (pcUsageMap.has(pcId)) {
+            pcUsageMap.get(pcId).total += duration;
+            pcUsageMap.get(pcId).count++;
+        }
 
-        // ✅ นับคะแนน Satisfaction ตรงนี้ (นับเฉพาะ Log ที่ผ่าน Filter มาแล้ว)
+        globalTotalMinutes += duration;
+        globalSessionCount++;
+
         if (log.satisfactionScore) {
             const score = parseInt(log.satisfactionScore);
             if (score >= 1 && score <= 5) {
@@ -236,7 +317,45 @@ function processLogs(logs, mode) {
         }
     });
 
-    result.pcAvgTimeData = Array.from(pcUsageMap.entries()).map(([id, d]) => ({ pcId: `PC-${id}`, avgTime: (d.total/d.count).toFixed(1) }));
+    // ✅ ส่วนที่แก้ไข: คำนวณหาเครื่องที่มี "ค่าเฉลี่ย" สูงสุด
+    let maxPcId = null;
+    let maxPcAvg = -1;
+
+    pcUsageMap.forEach((val, key) => {
+        // คำนวณ Avg ของเครื่องนี้
+        const avg = val.count > 0 ? (val.total / val.count) : 0;
+        
+        // เปรียบเทียบกับค่าเฉลี่ยสูงสุดที่เคยเจอ
+        if (avg > maxPcAvg) {
+            maxPcAvg = avg;
+            maxPcId = key;
+        }
+    });
+
+    if (maxPcId) {
+        const pcInfo = allPCs.find(p => String(p.id) === maxPcId);
+        result.quickStats.topPC = {
+            name: pcInfo ? pcInfo.name : `PC-${maxPcId}`,
+            value: maxPcAvg.toFixed(1) // ส่งค่าเฉลี่ยไปแสดงผล
+        };
+    }
+
+    // คำนวณ Avg Time (เฉลี่ยต่อ Session ทั้งระบบ)
+    if (globalSessionCount > 0) {
+        const avgMins = globalTotalMinutes / globalSessionCount;
+        result.quickStats.avgTime = {
+            minutes: avgMins.toFixed(0),
+            hours: (avgMins / 60).toFixed(1)
+        };
+    }
+
+    result.pcAvgTimeData = Array.from(pcUsageMap.entries()).map(([id, d]) => {
+        const avg = d.count > 0 ? (d.total / d.count) : 0;
+        const pcInfo = allPCs.find(p => String(p.id) === id);
+        const pcLabel = pcInfo ? pcInfo.name : `PC-${id}`;
+        return { pcId: pcLabel, avgTime: avg.toFixed(1) };
+    });
+
     return result;
 }
 
@@ -417,9 +536,10 @@ function drawPCAvgTimeChart(d) {
     let labels = (d && d.length > 0) ? d.map(x=>x.pcId) : ["ไม่มีข้อมูล"];
     let values = (d && d.length > 0) ? d.map(x=>x.avgTime) : [0];
 
-    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, '#fd7e14'); 
-    gradient.addColorStop(1, '#ffc107');
+    // ✅ ปรับสี Gradient ใหม่ (ฟ้า -> ม่วง) ให้เข้ากับ Theme ด้านบน
+    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, '#0d6efd');  // สีฟ้า (เหมือนการ์ด Avg Session)
+    gradient.addColorStop(1, '#8e2de2');  // สีม่วง (เหมือนการ์ด Top PC)
 
     return new Chart(ctx.getContext('2d'), {
         type: 'bar',
@@ -429,20 +549,34 @@ function drawPCAvgTimeChart(d) {
                 label: 'เวลาเฉลี่ย (นาที)',
                 data: values,
                 backgroundColor: gradient,
-                borderRadius: 4,
-                barPercentage: 0.5
+                borderRadius: 6, // เพิ่มความมนให้แท่งกราฟอีกนิด
+                barPercentage: 0.6,
+                hoverBackgroundColor: '#0a58ca' // สีตอนเอาเมาส์ชี้
             }]
         },
         options: {
-            responsive: true,
+            responsive: true, 
             maintainAspectRatio: false,
             plugins: { 
                 legend: { display: false },
-                tooltip: { callbacks: { label: (c) => ` ${c.raw} นาที` } }
+                tooltip: { 
+                    backgroundColor: 'rgba(13, 110, 253, 0.9)', // Tooltip สีฟ้า
+                    titleFont: { family: "'Prompt', sans-serif" },
+                    bodyFont: { family: "'Prompt', sans-serif" },
+                    padding: 10,
+                    callbacks: { label: (c) => ` ${c.raw} นาที` } 
+                } 
             },
             scales: {
-                y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#f0f0f0' }, ticks: { font: { family: "'Prompt', sans-serif" } } },
-                x: { grid: { display: false }, ticks: { font: { family: "'Prompt', sans-serif" } } }
+                y: { 
+                    beginAtZero: true, 
+                    grid: { borderDash: [2, 4], color: '#f0f0f0' }, 
+                    ticks: { font: { family: "'Prompt', sans-serif" }, color: '#6c757d' } 
+                },
+                x: { 
+                    grid: { display: false }, 
+                    ticks: { font: { family: "'Prompt', sans-serif" }, color: '#495057' } 
+                }
             }
         }
     });

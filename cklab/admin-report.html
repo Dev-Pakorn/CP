@@ -39,7 +39,7 @@
                 
                 <div class="d-flex gap-2">
                     <input type="file" id="csvFileInput" class="d-none" accept=".csv" onchange="processImportCSV(this)">
-                    <button onclick="document.getElementById('csvFileInput').click()" class="btn btn-outline-primary shadow-sm">
+                    <button onclick="document.getElementById('csvFileInput').click()" class="btn btn-outline-primary shadow-sm d-none">
                         <i class="bi bi-upload me-1"></i> Import CSV
                     </button>
                     <button onclick="exportCSV()" class="btn btn-success shadow-sm">
@@ -169,7 +169,6 @@
                         <h6 class="fw-bold text-dark mb-3" id="chartTitle2">1.2 สถิติผู้ใช้งานรายเดือน (หน่วยงาน/อื่นๆ)</h6>
                         <div class="bg-light p-3 rounded" style="height: 400px;"><canvas id="monthlyOrgChart"></canvas></div>
                     </div>
-                
                 </div>
 
                 <div class="col-lg-6">
@@ -223,14 +222,51 @@
                     </div>
                 </div>
 
-                <div class="col-lg-6">
+<div class="col-lg-6">
                     <div class="card border-0 shadow-sm p-3 h-100">
-                        <h6 class="fw-bold text-dark mb-3">4. เวลาใช้งานเฉลี่ย (นาที) ต่อเครื่อง</h6>
-                        <div class="bg-light p-3 rounded" style="height: 300px;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold text-dark mb-0">4. เวลาใช้งานเฉลี่ย (นาที) ต่อเครื่อง</h6>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <div class="card widget-card theme-purple h-100 border-0 shadow-sm">
+                                    <div class="card-body p-3 d-flex flex-column justify-content-between position-relative overflow-hidden">
+                                        <div class="d-flex justify-content-between align-items-start z-1 position-relative">
+                                            <div>
+                                                <div class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">TOP ACTIVE PC</div>
+                                                <h4 class="fw-bold mb-1 mt-2 text-theme" id="statTopPC">-</h4>
+                                                <div class="badge-pastel bg-pastel" id="statTopPCTime" style="font-size: 0.7rem;">-</div>
+                                            </div>
+                                            <div class="widget-icon-circle bg-pastel mb-2"><i class="bi bi-trophy-fill"></i></div>
+                                        </div>
+                                        <i class="bi bi-trophy-fill bg-icon-decoration icon-decor" style="font-size: 5rem; bottom: -10px; right: -10px;"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-6">
+                                <div class="card widget-card theme-blue h-100 border-0 shadow-sm">
+                                    <div class="card-body p-3 d-flex flex-column justify-content-between position-relative overflow-hidden">
+                                        <div class="d-flex justify-content-between align-items-start z-1 position-relative">
+                                            <div>
+                                                <div class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">AVG SESSION</div>
+                                                <h4 class="fw-bold mb-1 mt-2 text-theme" id="statAvgTime">0 น.</h4>
+                                                <div class="badge-pastel bg-pastel" style="font-size: 0.7rem;">เฉลี่ยรวม / ครั้ง</div>
+                                            </div>
+                                            <div class="widget-icon-circle bg-pastel mb-2"><i class="bi bi-clock-history"></i></div>
+                                        </div>
+                                        <i class="bi bi-clock-history bg-icon-decoration icon-decor" style="font-size: 5rem; bottom: -10px; right: -10px;"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-light p-3 rounded flex-grow-1" style="min-height: 250px;">
                             <canvas id="pcAvgTimeChart"></canvas>
                         </div>
                     </div>
                 </div>
+
             </div>
             
             <div class="row g-4 mt-1">
