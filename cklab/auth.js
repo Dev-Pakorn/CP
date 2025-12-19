@@ -76,18 +76,47 @@ function checkMachineStatus() {
     } 
 }
 
+/* ในไฟล์ auth.js ค้นหาฟังก์ชัน switchTab แล้วแก้เป็นแบบนี้ครับ */
+
 function switchTab(type) {
     activeTab = type;
     verifiedUserData = null;
+    
+    // จัดการ Class ปุ่ม Tab (เหมือนเดิม)
     document.getElementById('tab-internal').classList.toggle('active', type === 'internal');
     document.getElementById('tab-external').classList.toggle('active', type === 'external');
     document.getElementById('formInternal').classList.toggle('d-none', type !== 'internal');
     document.getElementById('formExternal').classList.toggle('d-none', type !== 'external');
     document.getElementById('internalVerifyCard').style.display = 'none';
     
+    // เคลียร์ค่า input (เหมือนเดิม)
     if (type === 'internal') {
         document.getElementById('ubuUser').value = '';
     }
+
+    // ✅✅✅ ส่วนที่เพิ่ม: จัดการปุ่ม Radio Button ✅✅✅
+    const radioBooking = document.querySelector('input[value="booking"]');
+    const radioWalkin = document.querySelector('input[value="walkin"]');
+    const radioBookingLabel = radioBooking.closest('.btn'); // หาปุ่มครอบ Radio
+
+    if (type === 'external') {
+        // 1. บังคับเลือก Walk-in
+        radioWalkin.checked = true;
+        
+        // 2. ปิดการใช้งานปุ่ม Booking (Disable & สีจางลง)
+        radioBooking.disabled = true;
+        if(radioBookingLabel) {
+            radioBookingLabel.classList.add('opacity-50', 'pe-none'); // ทำให้จางและกดไม่ได้
+        }
+    } else {
+        // กรณีกลับมาเป็น Internal: เปิดให้กดได้ปกติ
+        radioBooking.disabled = false;
+        if(radioBookingLabel) {
+            radioBookingLabel.classList.remove('opacity-50', 'pe-none');
+        }
+    }
+    // ✅✅✅ จบส่วนที่เพิ่ม ✅✅✅
+
     validateForm();
 }
 
