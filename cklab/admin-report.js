@@ -1,4 +1,4 @@
-/* admin-report.js (Final: Dynamic Period & Auto-Refresh Realtime) */
+/* admin-report.js (Final: Merged Checkboxes, Avg Stats & Realtime) */
 
 // --- Global Variables ---
 let monthlyFacultyChartInstance, monthlyOrgChartInstance;
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 1. โหลดข้อมูลครั้งแรก
     allLogs = DB.getLogs(); 
-    lastLogCount = allLogs.length; // จำจำนวน Log ปัจจุบันไว้เทียบ
+    lastLogCount = allLogs.length; 
 
     populateFilterOptions(allLogs); 
     autoSetDates(); // ตั้งค่าวันที่เริ่มต้น
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderLifetimeStats(); 
     applyFilters(); // วาดกราฟครั้งแรก
 
-    // 2. ✅ เริ่มระบบ Auto-Refresh (Real-time Check)
+    // 2. เริ่มระบบ Auto-Refresh (Real-time Check)
     setInterval(checkForUpdates, 5000); // เช็คทุก 5 วินาที
 });
 
@@ -36,8 +36,6 @@ function checkForUpdates() {
     // ถ้าจำนวน Log ใน DB ไม่เท่ากับที่แสดงอยู่ (แปลว่ามีคน Check-out ใหม่)
     if (currentLogs.length !== lastLogCount) {
         // console.log("New data detected! Refreshing reports...");
-        
-        // อัปเดตข้อมูลในตัวแปรหลัก
         allLogs = currentLogs;
         lastLogCount = currentLogs.length;
 
@@ -48,11 +46,9 @@ function checkForUpdates() {
 }
 
 // ==========================================
-// 1. FILTER LOGIC
+// 1. FILTER LOGIC (UPDATED)
 // ==========================================
 function populateFilterOptions(logs) {
-    const faculties = new Set(FACULTY_LIST);
-    const organizations = new Set(ORG_LIST);
     const levels = new Set();
     const years = new Set();
     const sortThai = (a, b) => String(a).localeCompare(String(b), 'th');
@@ -61,16 +57,11 @@ function populateFilterOptions(logs) {
     logs.forEach(log => {
         if (log.userLevel) levels.add(log.userLevel);
         if (log.userYear && log.userYear !== '-') years.add(log.userYear);
-        if (log.userFaculty && !faculties.has(log.userFaculty) && !organizations.has(log.userFaculty)) {
-             if (log.userFaculty.startsWith("คณะ") || log.userFaculty.startsWith("วิทยาลัย")) faculties.add(log.userFaculty);
-             else if (log.userFaculty !== "บุคคลภายนอก" && log.userFaculty !== "ไม่ระบุสังกัด") organizations.add(log.userFaculty);
-        }
     });
 
-    populateSelect('filterFaculty', faculties, sortThai);
-    populateSelect('filterOrganization', organizations, sortThai);
-    populateSelect('filterLevel', levels, sortThai);
-    populateSelect('filterYear', years, sortNum);
+    // Populate dropdowns ที่ยังคงเหลืออยู่
+    populateSelect('filterLevel', levels, sortThai); // เผื่อไว้ถ้ายังใช้
+    populateSelect('filterYear', years, sortNum);   // เผื่อไว้ถ้ายังใช้
 }
 
 function populateSelect(id, set, sortFn) {
@@ -84,11 +75,8 @@ function getFilterParams() {
     return {
         startDate: document.getElementById('filterStartDate').value,
         endDate: document.getElementById('filterEndDate').value,
-        faculty: document.getElementById('filterFaculty').value,
-        organization: document.getElementById('filterOrganization').value,
         userType: document.getElementById('filterUserType').value,
-        level: document.getElementById('filterLevel').value,
-        year: document.getElementById('filterYear').value,
+        eduLevel: document.getElementById('filterEducationLevel') ? document.getElementById('filterEducationLevel').value : '', 
         period: document.getElementById('filterPeriod').value 
     };
 }
@@ -98,7 +86,7 @@ function applyFilters() {
     const filtered = filterLogs(allLogs, params);
     
     let mode = 'monthly'; 
-    let textMode = 'รายเดือน'; // ข้อความที่จะแสดง
+    let textMode = 'รายเดือน';
 
     if (params.period.includes('daily')) {
         mode = 'daily';
@@ -108,100 +96,170 @@ function applyFilters() {
         textMode = 'รายปี';
     }
     
-    // ✅ อัปเดตหัวข้อกราฟ
+    // อัปเดตหัวข้อกราฟ
     const t1 = document.getElementById('chartTitle1');
     const t2 = document.getElementById('chartTitle2');
     if(t1) t1.innerText = `1.1 สถิติผู้ใช้งาน${textMode} (คณะ/วิทยาลัย)`;
     if(t2) t2.innerText = `1.2 สถิติผู้ใช้งาน${textMode} (หน่วยงาน/อื่นๆ)`;
 
     initializeReports(filtered, mode); 
+    renderLifetimeStats();
 }
 
 function clearFilters() { 
     document.getElementById('reportFilterForm').reset(); 
+    
+    // Reset Checkboxes UI
+    const chkContainer = document.getElementById('dynamicCheckboxContainer');
+    if(chkContainer) chkContainer.style.display = 'none';
+    
+    const yearContainer = document.getElementById('yearFilterContainer');
+    if(yearContainer) yearContainer.classList.add('d-none');
+    
     autoSetDates(); 
     applyFilters(); 
 }
 
-function filterLogs(logs, params) {
-    let filtered = logs;
-    const { startDate, endDate, faculty, organization, userType, level, year } = params;
+// ✅ [New Feature] จัดการเมื่อเปลี่ยน User Type (แสดง Checkbox)
+function handleUserTypeChange() {
+    const userType = document.getElementById('filterUserType').value;
+    const yearContainer = document.getElementById('yearFilterContainer');
+    const checkboxContainer = document.getElementById('dynamicCheckboxContainer');
+    const title = document.getElementById('checkboxGroupTitle');
     
-    if (startDate) {
-        filtered = filtered.filter(log => {
-            const logDate = new Date(log.timestamp).toLocaleDateString('en-CA');
-            return logDate >= startDate;
-        });
-    }
-    if (endDate) {
-        filtered = filtered.filter(log => {
-            const logDate = new Date(log.timestamp).toLocaleDateString('en-CA');
-            return logDate <= endDate;
-        });
-    }
-
-    if (faculty) filtered = filtered.filter(log => log.userFaculty === faculty);
-    if (organization) filtered = filtered.filter(log => log.userFaculty === organization);
-    if (userType) {
-        if (userType === 'Internal') filtered = filtered.filter(log => log.userRole === 'student' || log.userRole === 'staff');
-        else if (userType === 'External') filtered = filtered.filter(log => log.userRole === 'external');
-    }
-    if (level) filtered = filtered.filter(log => log.userLevel === level);
-    if (year) filtered = filtered.filter(log => log.userYear === year);
-    return filtered;
-}
-
-// ==========================================
-// 2. MAIN RENDER FUNCTION
-// ==========================================
-
-function initializeReports(logs, mode = 'monthly') {
-    // Clear old charts
-    [monthlyFacultyChartInstance, monthlyOrgChartInstance, pieChartInstance, pcAvgChartInstance, topSoftwareChartInstance].forEach(chart => {
-        if (chart) chart.destroy();
-    });
-
-    renderLogHistory(logs); // Render Table
-
-    const statsLogs = logs.filter(l => l.action === 'END_SESSION'); 
-    const data = processLogs(statsLogs, mode);
-    
-    // Draw All Charts with mode
-    monthlyFacultyChartInstance = drawBeautifulLineChart(data.monthlyFacultyData, 'monthlyFacultyChart', 5, mode);
-    monthlyOrgChartInstance = drawBeautifulLineChart(data.monthlyOrgData, 'monthlyOrgChart', 5, mode);
-    
-    topSoftwareChartInstance = drawTopSoftwareChart(data.softwareStats);
-    pieChartInstance = drawAIUsagePieChart(data.aiUsageData); 
-    pcAvgChartInstance = drawPCAvgTimeChart(data.pcAvgTimeData);
-    
-    // ✅ ฟังก์ชันนี้จะถูกเรียกใหม่ทุกครั้งที่ Auto-Refresh ทำงาน
-    drawSatisfactionChart(data.satisfactionData);
-    
-    renderFeedbackComments(statsLogs);
-}
-
-// admin-report.js
-
-// 1. เพิ่มฟังก์ชัน updateQuickStats เพื่ออัปเดต DOM
-function updateQuickStats(stats) {
-    const elTopPC = document.getElementById('statTopPC');
-    const elTopPCTime = document.getElementById('statTopPCTime');
-    const elAvgTime = document.getElementById('statAvgTime');
-
-    if (elTopPC) elTopPC.innerText = stats.topPC.name;
-    if (elTopPCTime) elTopPCTime.innerText = stats.topPC.totalHours > 0 ? `(รวม ${stats.topPC.totalHours} ชม.)` : '';
-    
-    // แสดงเวลาเฉลี่ย: ถ้าเกิน 1 ชม. ให้โชว์เป็น ชม. ถ้าไม่ถึงให้โชว์เป็นนาที
-    if (elAvgTime) {
-        if (stats.avgTime.minutes >= 60) {
-            elAvgTime.innerText = `${stats.avgTime.hours} ชม.`;
+    // 1. จัดการส่วนแสดงผล "ระดับการศึกษา / ชั้นปี"
+    if (yearContainer) {
+        if (userType === 'Student') {
+            yearContainer.classList.remove('d-none');
         } else {
-            elAvgTime.innerText = `${stats.avgTime.minutes} นาที`;
+            yearContainer.classList.add('d-none');
+            const eduEl = document.getElementById('filterEducationLevel');
+            if(eduEl) eduEl.value = '';
+        }
+    }
+
+    // 2. จัดการส่วน Checkbox ตามประเภทผู้ใช้
+    if (checkboxContainer && title) {
+        if (userType === 'Student') {
+            checkboxContainer.style.display = 'block';
+            title.innerText = 'เลือกคณะ (Faculty)';
+            renderCheckboxes(FACULTY_LIST); 
+        } else if (userType === 'Staff') {
+            checkboxContainer.style.display = 'block';
+            title.innerText = 'เลือกหน่วยงาน (Organization)';
+            renderCheckboxes(ORG_LIST); 
+        } else {
+            checkboxContainer.style.display = 'none';
         }
     }
 }
 
-// 1. แก้ไขฟังก์ชัน updateQuickStats เพื่อแสดงผลเป็น "ค่าเฉลี่ย"
+// ✅ [New Feature] สร้าง Checkbox
+function renderCheckboxes(list) {
+    const container = document.getElementById('checkboxList');
+    if(!container) return;
+
+    const selectAll = document.getElementById('selectAllCheckboxes');
+    if(selectAll) selectAll.checked = false;
+
+    container.innerHTML = list.map(item => `
+        <div class="col-md-4">
+            <div class="form-check">
+                <input class="form-check-input filter-checkbox" type="checkbox" value="${item}" id="chk_${item.replace(/\s/g, '')}">
+                <label class="form-check-label small" for="chk_${item.replace(/\s/g, '')}">${item}</label>
+            </div>
+        </div>
+    `).join('');
+}
+
+// ✅ [New Feature] เลือกทั้งหมด
+function toggleSelectAll(master) {
+    const checkboxes = document.querySelectorAll('.filter-checkbox');
+    checkboxes.forEach(cb => cb.checked = master.checked);
+}
+
+// ✅ [New Logic] กรองข้อมูลรวม Checkbox
+function filterLogs(logs, params) {
+    let filtered = logs;
+    const { startDate, endDate, userType, eduLevel } = params;
+    
+    // ดึงค่าจาก Checkbox ที่ถูกเลือก
+    const selectedItems = Array.from(document.querySelectorAll('.filter-checkbox:checked')).map(cb => cb.value);
+
+    // กรองวันที่
+    if (startDate) {
+        filtered = filtered.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') >= startDate);
+    }
+    if (endDate) {
+        filtered = filtered.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') <= endDate);
+    }
+
+    // กรองตาม User Type และ Checkbox
+    if (userType === 'Student') {
+        filtered = filtered.filter(log => log.userRole === 'student');
+        
+        // ถ้ามีการติ๊กเลือกคณะ
+        if (selectedItems.length > 0) {
+            filtered = filtered.filter(log => selectedItems.includes(log.userFaculty));
+        }
+        
+        // กรองระดับการศึกษา
+        if (eduLevel === 'Undergraduate') {
+            const undergradYears = ['1', '2', '3', '4'];
+            filtered = filtered.filter(log => undergradYears.includes(String(log.userYear)));
+        } else if (['1', '2', '3', '4'].includes(eduLevel)) {
+            filtered = filtered.filter(log => String(log.userYear) === eduLevel);
+        } else if (eduLevel === 'Master') {
+            filtered = filtered.filter(log => log.userLevel === 'ปริญญาโท');
+        } else if (eduLevel === 'Doctoral') {
+            filtered = filtered.filter(log => log.userLevel === 'ปริญญาเอก');
+        }
+
+    } else if (userType === 'Staff') {
+        filtered = filtered.filter(log => log.userRole === 'staff');
+        // ถ้ามีการติ๊กเลือกหน่วยงาน
+        if (selectedItems.length > 0) {
+            filtered = filtered.filter(log => selectedItems.includes(log.userFaculty));
+        }
+
+    } else if (userType === 'External') {
+        filtered = filtered.filter(log => log.userRole === 'external');
+
+    } else if (userType === 'Internal') {
+        filtered = filtered.filter(log => log.userRole === 'student' || log.userRole === 'staff');
+    }
+
+    return filtered;
+}
+
+// ==========================================
+// 2. MAIN RENDER FUNCTION & STATS PROCESSING
+// ==========================================
+
+function initializeReports(logs, mode = 'monthly') {
+    // ล้างกราฟเก่า
+    [monthlyFacultyChartInstance, monthlyOrgChartInstance, pieChartInstance, pcAvgChartInstance, topSoftwareChartInstance].forEach(chart => {
+        if (chart) chart.destroy();
+    });
+
+    renderLogHistory(logs); // ตารางประวัติ
+
+    const statsLogs = logs.filter(l => l.action === 'END_SESSION'); 
+    const data = processLogs(statsLogs, mode);
+    
+    updateQuickStats(data.quickStats); // อัปเดตการ์ดสถิติ (Average)
+
+    monthlyFacultyChartInstance = drawBeautifulLineChart(data.monthlyFacultyData, 'monthlyFacultyChart', 5, mode);
+    monthlyOrgChartInstance = drawBeautifulLineChart(data.monthlyOrgData, 'monthlyOrgChart', 5, mode);
+    topSoftwareChartInstance = drawTopSoftwareChart(data.softwareStats);
+    pieChartInstance = drawAIUsagePieChart(data.aiUsageData); 
+    pcAvgChartInstance = drawPCAvgTimeChart(data.pcAvgTimeData);
+    
+    drawSatisfactionChart(data.satisfactionData);
+    renderFeedbackComments(statsLogs);
+}
+
+// ✅ อัปเดต Quick Stats (โชว์ค่าเฉลี่ย ตามโค้ดที่คุณต้องการ)
 function updateQuickStats(stats) {
     const elTopPC = document.getElementById('statTopPC');
     const elTopPCTime = document.getElementById('statTopPCTime');
@@ -209,8 +267,8 @@ function updateQuickStats(stats) {
 
     if (elTopPC) elTopPC.innerText = stats.topPC.name;
     
-    // ✅ แก้ไข: เปลี่ยนคำแสดงผลจาก "รวม...ชม." เป็น "เฉลี่ย...นาที"
     if (elTopPCTime) {
+        // แสดงเป็น "เฉลี่ย ... นาที" แทน "รวม ... ชม."
         elTopPCTime.innerText = stats.topPC.value > 0 
             ? `(เฉลี่ย ${stats.topPC.value} นาที)` 
             : '';
@@ -225,36 +283,13 @@ function updateQuickStats(stats) {
     }
 }
 
-// 2. initializeReports (เหมือนเดิม แต่รวมมาให้ครบชุด)
-function initializeReports(logs, mode = 'monthly') {
-    [monthlyFacultyChartInstance, monthlyOrgChartInstance, pieChartInstance, pcAvgChartInstance, topSoftwareChartInstance].forEach(chart => {
-        if (chart) chart.destroy();
-    });
-
-    renderLogHistory(logs);
-
-    const statsLogs = logs.filter(l => l.action === 'END_SESSION'); 
-    const data = processLogs(statsLogs, mode);
-    
-    updateQuickStats(data.quickStats); // อัปเดตการ์ดสถิติ
-
-    monthlyFacultyChartInstance = drawBeautifulLineChart(data.monthlyFacultyData, 'monthlyFacultyChart', 5, mode);
-    monthlyOrgChartInstance = drawBeautifulLineChart(data.monthlyOrgData, 'monthlyOrgChart', 5, mode);
-    topSoftwareChartInstance = drawTopSoftwareChart(data.softwareStats);
-    pieChartInstance = drawAIUsagePieChart(data.aiUsageData); 
-    pcAvgChartInstance = drawPCAvgTimeChart(data.pcAvgTimeData);
-    drawSatisfactionChart(data.satisfactionData);
-    renderFeedbackComments(statsLogs);
-}
-
-// 3. แก้ไข processLogs ให้คำนวณหา Max Average แทน Max Total
+// ✅ แก้ไข processLogs ให้คำนวณ Max Average (ตามโค้ดที่คุณต้องการ)
 function processLogs(logs, mode) {
     const result = {
         monthlyFacultyData: {}, monthlyOrgData: {}, aiUsageData: { ai: 0, nonAI: 0 },
         pcAvgTimeData: [], satisfactionData: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, total: 0 },
         softwareStats: {},
         quickStats: { 
-            // ✅ เปลี่ยนชื่อตัวแปรจาก totalHours เป็น value เพื่อความยืดหยุ่น
             topPC: { name: '-', value: 0 }, 
             avgTime: { hours: 0, minutes: 0 } 
         }
@@ -271,7 +306,7 @@ function processLogs(logs, mode) {
     });
 
     logs.forEach(log => {
-        // ... (Logic การนับกราฟต่างๆ คงเดิม) ...
+        // --- Grouping Date Logic ---
         const dateObj = new Date(log.timestamp);
         let timeKey;
         if (mode === 'daily') timeKey = dateObj.getDate().toString(); 
@@ -288,8 +323,10 @@ function processLogs(logs, mode) {
             target[timeKey][faculty] = (target[timeKey][faculty] || 0) + 1;
         }
 
+        // --- AI Usage ---
         if (log.isAIUsed) result.aiUsageData.ai++; else result.aiUsageData.nonAI++;
 
+        // --- Software Stats ---
         if (Array.isArray(log.usedSoftware)) {
             log.usedSoftware.forEach(sw => {
                 const name = sw.split('(')[0].trim();
@@ -297,6 +334,7 @@ function processLogs(logs, mode) {
             });
         }
 
+        // --- PC Usage Stats ---
         const pcId = String(log.pcId);
         const duration = log.durationMinutes || 0;
         
@@ -308,6 +346,7 @@ function processLogs(logs, mode) {
         globalTotalMinutes += duration;
         globalSessionCount++;
 
+        // --- Satisfaction ---
         if (log.satisfactionScore) {
             const score = parseInt(log.satisfactionScore);
             if (score >= 1 && score <= 5) {
@@ -317,15 +356,12 @@ function processLogs(logs, mode) {
         }
     });
 
-    // ✅ ส่วนที่แก้ไข: คำนวณหาเครื่องที่มี "ค่าเฉลี่ย" สูงสุด
+    // --- Calculate Top Active PC (By Average Time) ---
     let maxPcId = null;
     let maxPcAvg = -1;
 
     pcUsageMap.forEach((val, key) => {
-        // คำนวณ Avg ของเครื่องนี้
         const avg = val.count > 0 ? (val.total / val.count) : 0;
-        
-        // เปรียบเทียบกับค่าเฉลี่ยสูงสุดที่เคยเจอ
         if (avg > maxPcAvg) {
             maxPcAvg = avg;
             maxPcId = key;
@@ -336,11 +372,11 @@ function processLogs(logs, mode) {
         const pcInfo = allPCs.find(p => String(p.id) === maxPcId);
         result.quickStats.topPC = {
             name: pcInfo ? pcInfo.name : `PC-${maxPcId}`,
-            value: maxPcAvg.toFixed(1) // ส่งค่าเฉลี่ยไปแสดงผล
+            value: maxPcAvg.toFixed(1)
         };
     }
 
-    // คำนวณ Avg Time (เฉลี่ยต่อ Session ทั้งระบบ)
+    // --- Calculate Global Avg Time ---
     if (globalSessionCount > 0) {
         const avgMins = globalTotalMinutes / globalSessionCount;
         result.quickStats.avgTime = {
@@ -349,6 +385,7 @@ function processLogs(logs, mode) {
         };
     }
 
+    // --- Prepare Chart Data ---
     result.pcAvgTimeData = Array.from(pcUsageMap.entries()).map(([id, d]) => {
         const avg = d.count > 0 ? (d.total / d.count) : 0;
         const pcInfo = allPCs.find(p => String(p.id) === id);
@@ -367,7 +404,7 @@ function drawBeautifulLineChart(data, canvasId, topN = 5, mode = 'monthly') {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     
-    // Sort logic ตามโหมด
+    // Sort logic
     const keys = Object.keys(data).sort((a, b) => {
         if (mode === 'daily') {
             return parseInt(a) - parseInt(b);
@@ -432,152 +469,85 @@ function drawTopSoftwareChart(data) {
     });
 }
 
-// Satisfaction Widget (Progress Bars)
-// admin-report.js
-
 function drawSatisfactionChart(data) {
     const total = data.total || 0;
     let avgScore = 0.0;
-    
     if (total > 0) {
         const weightedSum = (data[5]*5) + (data[4]*4) + (data[3]*3) + (data[2]*2) + (data[1]*1);
         avgScore = (weightedSum / total); 
     }
-
     const avgDisplay = avgScore.toFixed(1);
-
-    // 1. อัปเดตส่วนคะแนนรวม (Big Number)
+    
+    // อัปเดตตัวเลข
     const scoreEl = document.getElementById('satisfactionAvgScore');
     const countEl = document.getElementById('satisfactionTotalCount');
     const starsEl = document.getElementById('satisfactionStars');
     
     if(scoreEl) {
-        // เปลี่ยนสีตัวเลขตามเกณฑ์
         let scoreClass = 'text-dark';
         let scoreText = 'ไม่มีข้อมูล';
-        
         if (avgScore >= 4.5) { scoreClass = 'text-success'; scoreText = 'ยอดเยี่ยม (Excellent)'; }
         else if (avgScore >= 3.5) { scoreClass = 'text-primary'; scoreText = 'ดีมาก (Very Good)'; }
         else if (avgScore >= 2.5) { scoreClass = 'text-warning'; scoreText = 'ปานกลาง (Fair)'; }
         else if (avgScore > 0) { scoreClass = 'text-danger'; scoreText = 'ควรปรับปรุง (Poor)'; }
 
         scoreEl.className = `fw-bold mb-0 me-3 ${scoreClass}`;
-        scoreEl.style.fontSize = "4rem"; // ขยายตัวเลขให้ใหญ่สะใจ
+        scoreEl.style.fontSize = "4rem";
         scoreEl.innerText = avgDisplay;
 
-        // เพิ่ม Text คำบรรยายใต้ดาว
         let sentimentHtml = `<div class="fw-bold ${scoreClass}" style="font-size: 1.1rem;">${scoreText}</div>`;
-        
         if(starsEl) {
             let starsHtml = '';
             for(let i=1; i<=5; i++) {
-                // ดาวเต็มดวง / ครึ่งดวง / ดาวว่าง
-                if (i <= Math.floor(avgScore)) {
-                    starsHtml += '<i class="bi bi-star-fill text-warning drop-shadow-sm"></i>';
-                } else if (i === Math.ceil(avgScore) && !Number.isInteger(avgScore)) {
-                    starsHtml += '<i class="bi bi-star-half text-warning drop-shadow-sm"></i>';
-                } else {
-                    starsHtml += '<i class="bi bi-star-fill text-muted opacity-25"></i>';
-                }
+                if (i <= Math.floor(avgScore)) starsHtml += '<i class="bi bi-star-fill text-warning drop-shadow-sm"></i>';
+                else if (i === Math.ceil(avgScore) && !Number.isInteger(avgScore)) starsHtml += '<i class="bi bi-star-half text-warning drop-shadow-sm"></i>';
+                else starsHtml += '<i class="bi bi-star-fill text-muted opacity-25"></i>';
             }
             starsEl.innerHTML = starsHtml + sentimentHtml;
         }
     }
-    
     if(countEl) countEl.innerText = `จากผู้ใช้งานทั้งหมด ${total.toLocaleString()} คน`;
 
-    // 2. อัปเดตส่วนกราฟแท่ง (Distribution Bars)
+    // อัปเดตกราฟแท่ง
     const container = document.getElementById('satisfactionProgressBars');
     if(!container) return;
-
     container.innerHTML = '';
-    
-    // Config สีของแต่ละบาร์ให้นุ่มนวล (Soft Colors)
-    const barConfigs = {
-        5: { color: '#2ecc71', label: '5' }, // เขียวมรกต
-        4: { color: '#3498db', label: '4' }, // ฟ้า
-        3: { color: '#f1c40f', label: '3' }, // เหลือง
-        2: { color: '#e67e22', label: '2' }, // ส้ม
-        1: { color: '#e74c3c', label: '1' }  // แดง
-    };
+    const barConfigs = { 5: { color: '#2ecc71' }, 4: { color: '#3498db' }, 3: { color: '#f1c40f' }, 2: { color: '#e67e22' }, 1: { color: '#e74c3c' } };
 
     for(let i=5; i>=1; i--) {
         const count = data[i] || 0;
         const percent = total > 0 ? ((count / total) * 100).toFixed(0) : 0;
         const config = barConfigs[i];
-
-        const html = `
+        container.innerHTML += `
             <div class="d-flex align-items-center mb-2" style="height: 24px;">
                 <div class="d-flex align-items-center justify-content-end me-2" style="width: 35px;">
-                    <span class="small fw-bold text-muted me-1">${i}</span>
-                    <i class="bi bi-star-fill text-warning small"></i>
+                    <span class="small fw-bold text-muted me-1">${i}</span><i class="bi bi-star-fill text-warning small"></i>
                 </div>
-                
                 <div class="flex-grow-1 progress" style="height: 8px; background-color: #f1f3f5; border-radius: 10px; overflow: hidden;">
-                    <div class="progress-bar" role="progressbar" 
-                         style="width: ${percent}%; background-color: ${config.color}; border-radius: 10px; transition: width 1s ease;">
-                    </div>
+                    <div class="progress-bar" style="width: ${percent}%; background-color: ${config.color}; border-radius: 10px; transition: width 1s ease;"></div>
                 </div>
-
                 <div class="ms-2 d-flex justify-content-between" style="width: 60px;">
-                    <span class="small fw-bold text-dark">${percent}%</span>
-                    <span class="small text-muted" style="font-size: 0.75rem;">(${count})</span>
+                    <span class="small fw-bold text-dark">${percent}%</span><span class="small text-muted" style="font-size: 0.75rem;">(${count})</span>
                 </div>
-            </div>
-        `;
-        container.insertAdjacentHTML('beforeend', html);
+            </div>`;
     }
 }
 
 function drawPCAvgTimeChart(d) { 
     const ctx = document.getElementById('pcAvgTimeChart');
     if(!ctx) return;
-
     let labels = (d && d.length > 0) ? d.map(x=>x.pcId) : ["ไม่มีข้อมูล"];
     let values = (d && d.length > 0) ? d.map(x=>x.avgTime) : [0];
-
-    // ✅ ปรับสี Gradient ใหม่ (ฟ้า -> ม่วง) ให้เข้ากับ Theme ด้านบน
     const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, '#0d6efd');  // สีฟ้า (เหมือนการ์ด Avg Session)
-    gradient.addColorStop(1, '#8e2de2');  // สีม่วง (เหมือนการ์ด Top PC)
+    gradient.addColorStop(0, '#0d6efd'); gradient.addColorStop(1, '#8e2de2');
 
     return new Chart(ctx.getContext('2d'), {
         type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'เวลาเฉลี่ย (นาที)',
-                data: values,
-                backgroundColor: gradient,
-                borderRadius: 6, // เพิ่มความมนให้แท่งกราฟอีกนิด
-                barPercentage: 0.6,
-                hoverBackgroundColor: '#0a58ca' // สีตอนเอาเมาส์ชี้
-            }]
-        },
+        data: { labels: labels, datasets: [{ label: 'เวลาเฉลี่ย (นาที)', data: values, backgroundColor: gradient, borderRadius: 6, barPercentage: 0.6, hoverBackgroundColor: '#0a58ca' }] },
         options: {
-            responsive: true, 
-            maintainAspectRatio: false,
-            plugins: { 
-                legend: { display: false },
-                tooltip: { 
-                    backgroundColor: 'rgba(13, 110, 253, 0.9)', // Tooltip สีฟ้า
-                    titleFont: { family: "'Prompt', sans-serif" },
-                    bodyFont: { family: "'Prompt', sans-serif" },
-                    padding: 10,
-                    callbacks: { label: (c) => ` ${c.raw} นาที` } 
-                } 
-            },
-            scales: {
-                y: { 
-                    beginAtZero: true, 
-                    grid: { borderDash: [2, 4], color: '#f0f0f0' }, 
-                    ticks: { font: { family: "'Prompt', sans-serif" }, color: '#6c757d' } 
-                },
-                x: { 
-                    grid: { display: false }, 
-                    ticks: { font: { family: "'Prompt', sans-serif" }, color: '#495057' } 
-                }
-            }
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(13, 110, 253, 0.9)', titleFont: { family: "'Prompt', sans-serif" }, bodyFont: { family: "'Prompt', sans-serif" }, padding: 10, callbacks: { label: (c) => ` ${c.raw} นาที` } } },
+            scales: { y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#f0f0f0' }, ticks: { font: { family: "'Prompt', sans-serif" }, color: '#6c757d' } }, x: { grid: { display: false }, ticks: { font: { family: "'Prompt', sans-serif" }, color: '#495057' } } }
         }
     });
 }
@@ -586,11 +556,7 @@ function drawAIUsagePieChart(d) {
     return new Chart(document.getElementById('aiUsagePieChart'), { 
         type: 'doughnut', 
         data: { labels: ['AI Tools', 'General Use'], datasets: [{ data: [d.ai, d.nonAI], backgroundColor: ['#4e73df', '#e2e6ea'], borderWidth: 0 }] }, 
-        options: { 
-            responsive: true, maintainAspectRatio: false, 
-            plugins: { legend: { position:'bottom', labels: { usePointStyle: true, font: { family: "'Prompt', sans-serif" } } } },
-            cutout: '70%' 
-        } 
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position:'bottom', labels: { usePointStyle: true, font: { family: "'Prompt', sans-serif" } } } }, cutout: '70%' } 
     }); 
 }
 
@@ -602,11 +568,10 @@ function getChartColor(i) { return ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', 
 
 function renderLogHistory(logs) {
     const tbody = document.getElementById('logHistoryTableBody');
-    const COLSPAN_COUNT = 11;
     if (!tbody) return;
     
     if (!logs || logs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${COLSPAN_COUNT}" class="text-center text-muted p-4">ไม่พบข้อมูล</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="text-center text-muted p-4">ไม่พบข้อมูล</td></tr>`;
         return;
     }
     
@@ -616,8 +581,7 @@ function renderLogHistory(logs) {
         const userId = log.userId || '-';
         const name = log.userName || '-';
         const softwareDisplay = (Array.isArray(log.usedSoftware) && log.usedSoftware.length > 0) 
-            ? log.usedSoftware.slice(0, 2).map(s => `<span class="badge bg-light text-dark border fw-normal me-1">${s}</span>`).join('') + (log.usedSoftware.length > 2 ? '...' : '') 
-            : '-';
+            ? log.usedSoftware.slice(0, 2).map(s => `<span class="badge bg-light text-dark border fw-normal me-1">${s}</span>`).join('') + (log.usedSoftware.length > 2 ? '...' : '') : '-';
 
         const end = new Date(log.timestamp);
         const start = log.startTime ? new Date(log.startTime) : end;
@@ -650,7 +614,7 @@ function renderLogHistory(logs) {
     }).join('');
 
     if (logs.length > 100) {
-        tbody.innerHTML += `<tr><td colspan="${COLSPAN_COUNT}" class="text-center text-muted small p-2 bg-light">... มีข้อมูลอีก ${logs.length - 100} รายการ (กรุณากด Export Data เพื่อดูทั้งหมด) ...</td></tr>`;
+        tbody.innerHTML += `<tr><td colspan="11" class="text-center text-muted small p-2 bg-light">... มีข้อมูลอีก ${logs.length - 100} รายการ (กรุณากด Export Data เพื่อดูทั้งหมด) ...</td></tr>`;
     }
 }
 
@@ -660,7 +624,6 @@ function renderFeedbackComments(logs) {
     if (!container) return;
 
     const comments = logs.filter(log => log.comment && log.comment.trim() !== "");
-
     if(countBadge) countBadge.innerText = comments.length;
 
     if (comments.length === 0) {
@@ -669,13 +632,11 @@ function renderFeedbackComments(logs) {
     }
 
     const sortedComments = comments.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
     container.innerHTML = sortedComments.map(log => {
         const score = parseInt(log.satisfactionScore) || 0;
         let stars = '';
-        for(let i=1; i<=5; i++) {
-            stars += i <= score ? '<i class="bi bi-star-fill text-warning"></i>' : '<i class="bi bi-star text-muted opacity-25"></i>';
-        }
+        for(let i=1; i<=5; i++) stars += i <= score ? '<i class="bi bi-star-fill text-warning"></i>' : '<i class="bi bi-star text-muted opacity-25"></i>';
+        
         const dateObj = new Date(log.timestamp);
         const dateStr = dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
         const timeStr = dateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
@@ -708,8 +669,12 @@ function renderFeedbackComments(logs) {
     }).join('');
 }
 
-// --- Export Functions ---
 function exportReport(mode) {
+    const modeNames = { 'daily': 'รายวัน (Daily)', 'monthly': 'รายเดือน (Monthly)', 'quarterly': 'รายไตรมาส (Quarterly)', 'yearly': 'รายปี (Yearly)' };
+    const selectedModeName = modeNames[mode] || mode;
+
+    if (!confirm(`ยืนยันการดาวน์โหลดรายงาน "${selectedModeName}" หรือไม่?`)) return;
+
     const today = new Date();
     let startDate, endDate, fileNamePrefix;
     switch(mode) {
@@ -770,60 +735,32 @@ function createCSVFile(logs, fileName) {
     document.body.removeChild(link);
 }
 
-// 5. LIFETIME STATS
 function renderLifetimeStats() {
-    // ฟังก์ชันนี้จะดึง Log ใหม่อัตโนมัติ เพราะเราเรียก DB.getLogs() ข้างใน
     const logs = DB.getLogs();
     const total = logs.length;
-    
-    // นับ Internal (นักศึกษา/บุคลากร) และ External
     const internal = logs.filter(l => l.userRole === 'student' || l.userRole === 'staff').length;
     const external = total - internal; 
 
     document.getElementById('lifetimeTotalCount').innerText = total.toLocaleString();
-    
-    // อัปเดตตัวเลขแยกประเภท
     if(document.getElementById('lifetimeInternal')) document.getElementById('lifetimeInternal').innerText = internal.toLocaleString();
     if(document.getElementById('lifetimeExternal')) document.getElementById('lifetimeExternal').innerText = external.toLocaleString();
-
-    // อัปเดต Progress Bar
     if (total > 0) {
-        const intPct = (internal / total) * 100;
-        const extPct = (external / total) * 100;
-        
-        if(document.getElementById('progInternal')) document.getElementById('progInternal').style.width = `${intPct}%`;
-        if(document.getElementById('progExternal')) document.getElementById('progExternal').style.width = `${extPct}%`;
+        if(document.getElementById('progInternal')) document.getElementById('progInternal').style.width = `${(internal / total) * 100}%`;
+        if(document.getElementById('progExternal')) document.getElementById('progExternal').style.width = `${(external / total) * 100}%`;
     }
 }
 
 function autoSetDates() { 
     const periodSelect = document.getElementById('filterPeriod');
     if (!periodSelect) return; 
-
     const p = periodSelect.value;
     const t = new Date(); 
     let s, e; 
-
-    if (p === 'daily_31') {
-        // รายวัน (1-31) -> ดูข้อมูลทั้งเดือนนี้ เพื่อให้กราฟรายวันแสดง 1-31
-        s = new Date(t.getFullYear(), t.getMonth(), 1); 
-        e = new Date(t.getFullYear(), t.getMonth() + 1, 0);
-    } else if (p === 'monthly_12') {
-        // รายเดือน (ม.ค.-ธ.ค.) -> ดูข้อมูลทั้งปีนี้
-        s = new Date(t.getFullYear(), 0, 1); 
-        e = new Date(t.getFullYear(), 11, 31);
-    } else if (p === 'quarterly') {
-        // รายไตรมาส -> ดูไตรมาสปัจจุบัน
-        const q = Math.floor(t.getMonth() / 3);
-        s = new Date(t.getFullYear(), q * 3, 1);
-        e = new Date(t.getFullYear(), (q * 3) + 3, 0);
-    } else if (p === 'yearly_custom') {
-        // รายปี (2025-ปัจจุบัน)
-        s = new Date(2025, 0, 1); 
-        e = t; 
-    } else if (p === 'custom') {
-        return; 
-    }
+    if (p === 'daily_31') { s = new Date(t.getFullYear(), t.getMonth(), 1); e = new Date(t.getFullYear(), t.getMonth() + 1, 0); } 
+    else if (p === 'monthly_12') { s = new Date(t.getFullYear(), 0, 1); e = new Date(t.getFullYear(), 11, 31); } 
+    else if (p === 'quarterly') { const q = Math.floor(t.getMonth() / 3); s = new Date(t.getFullYear(), q * 3, 1); e = new Date(t.getFullYear(), (q * 3) + 3, 0); } 
+    else if (p === 'yearly_custom') { s = new Date(2025, 0, 1); e = t; } 
+    else if (p === 'custom') return; 
 
     if (s && e) {
         document.getElementById('filterStartDate').value = formatDateForInput(s); 
@@ -832,7 +769,101 @@ function autoSetDates() {
     } 
 }
 
-function processImportCSV(el) { alert('ฟังก์ชัน Import CSV ทำงานปกติ (จำลอง)'); }
+function processImportCSV(input) {
+    if (!input.files || !input.files[0]) return;
+    
+    const file = input.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        try {
+            const text = e.target.result;
+            const rows = text.split('\n');
+            const newLogs = [];
+            
+            // ข้ามบรรทัดแรก (Header) เริ่มที่ i = 1
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i].trim();
+                if (!row) continue;
+                
+                // แกะข้อมูล CSV (ตัดเครื่องหมาย " หน้าหลัง แล้วแยกด้วย "," )
+                const cols = row.slice(1, -1).split('","');
+                
+                // ต้องมีข้อมูลครบ 11 คอลัมน์ตามฟอร์แมต Export
+                if (cols.length < 11) continue; 
+                
+                // [Format]: No, ID, Name, Software, Date, TimeRange, Faculty, Role, PC, Duration, Score
+
+                // 1. แปลงวันที่ (จากไทย dd/mm/yyyy -> สากล)
+                const dateParts = cols[4].split('/'); 
+                if (dateParts.length !== 3) continue;
+                
+                let year = parseInt(dateParts[2]);
+                if (year > 2400) year -= 543; // แปลง พ.ศ. เป็น ค.ศ.
+                const month = parseInt(dateParts[1]) - 1; 
+                const day = parseInt(dateParts[0]);
+
+                // 2. แปลงเวลา (เอาเวลาสิ้นสุดมาเป็น Timestamp หลัก)
+                const timeParts = cols[5].split(' - ');
+                const endTimeStr = timeParts[1] ? timeParts[1].trim() : "00:00";
+                const [endH, endM] = endTimeStr.split(':').map(Number);
+                
+                const timestampObj = new Date(year, month, day, endH, endM);
+                
+                // 3. แปลง Role กลับเป็น code
+                const roleMap = { 'นักศึกษา': 'student', 'บุคลากร/อาจารย์': 'staff', 'บุคคลภายนอก': 'external' };
+                const userRole = roleMap[cols[7]] || 'external';
+
+                // 4. สร้าง Object Log
+                const duration = parseInt(cols[9]) || 0;
+                const usedSoftware = cols[3] !== '-' ? cols[3].split('; ') : [];
+
+                const log = {
+                    timestamp: timestampObj.toISOString(),
+                    action: 'END_SESSION',
+                    userId: cols[1],
+                    userName: cols[2],
+                    usedSoftware: usedSoftware,
+                    userFaculty: cols[6],
+                    userRole: userRole,
+                    pcId: cols[8].replace('PC-', ''),
+                    durationMinutes: duration,
+                    satisfactionScore: cols[10] !== '-' ? parseInt(cols[10]) : null,
+                    // คำนวณเวลาเริ่มย้อนหลัง
+                    startTime: new Date(timestampObj.getTime() - (duration * 60000)).toISOString()
+                };
+                
+                // 5. ตรวจสอบว่าใช้ AI หรือไม่ (เพื่อนำไปพลอตกราฟ Pie)
+                log.isAIUsed = usedSoftware.some(sw => {
+                    const s = sw.toLowerCase();
+                    return s.includes('gpt') || s.includes('claude') || s.includes('ai') || s.includes('midjourney') || s.includes('botnoi');
+                });
+
+                newLogs.push(log);
+            }
+
+            if (newLogs.length > 0) {
+                // บันทึกลง Mock DB
+                const currentLogs = DB.getLogs();
+                const allLogs = [...currentLogs, ...newLogs];
+                
+                DB.setData('ck_logs', allLogs);
+                
+                alert(`✅ นำเข้าข้อมูลสำเร็จ ${newLogs.length} รายการ\nหน้าเว็บจะรีเฟรชเพื่อแสดงผลรายงานใหม่`);
+                location.reload(); 
+            } else {
+                alert('⚠️ ไม่พบข้อมูลที่สามารถนำเข้าได้ หรือรูปแบบไฟล์ไม่ถูกต้อง');
+            }
+
+        } catch (err) {
+            console.error(err);
+            alert('❌ เกิดข้อผิดพลาดในการอ่านไฟล์ CSV');
+        }
+    };
+    
+    reader.readAsText(file);
+    input.value = ''; // ล้างค่า input เพื่อให้เลือกไฟล์เดิมซ้ำได้ถ้าต้องการ
+}
 function formatDateForInput(date) { return date.toLocaleDateString('en-CA'); } 
 function formatDateStr(date) { return date.toLocaleDateString('en-CA'); } 
 function getSatisfactionDisplay(score) { if (!score) return '-'; const c = score>=4?'success':(score>=2?'warning text-dark':'danger'); return `<span class="badge bg-${c}"><i class="bi bi-star-fill"></i> ${score}</span>`; }

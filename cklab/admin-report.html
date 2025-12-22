@@ -10,6 +10,20 @@
     <link href="admin.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     
+    <style>
+        /* ปรับแต่งตารางเพิ่มเติมเฉพาะหน้านี้ */
+        .table-custom thead th {
+            background-color: #0d6efd !important;
+            color: white !important;
+            font-weight: 500;
+            border-bottom: none;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        .table-custom tbody tr:nth-of-type(odd) { background-color: #f8faff; }
+        .table-custom tbody tr:hover { background-color: #e7f1ff; }
+        .table-responsive { overflow-x: auto; }
+    </style>
 </head>
 <body class="bg-light">
 
@@ -39,9 +53,10 @@
                 
                 <div class="d-flex gap-2">
                     <input type="file" id="csvFileInput" class="d-none" accept=".csv" onchange="processImportCSV(this)">
-                    <button onclick="document.getElementById('csvFileInput').click()" class="btn btn-outline-primary shadow-sm d-none">
+                    <button onclick="document.getElementById('csvFileInput').click()" class="btn btn-outline-primary shadow-sm">
                         <i class="bi bi-upload me-1"></i> Import CSV
                     </button>
+
                     <button onclick="exportCSV()" class="btn btn-success shadow-sm">
                         <i class="bi bi-download me-1"></i> Export Data
                     </button>
@@ -63,7 +78,12 @@
                                     <h6 class="text-white-50 fw-bold text-uppercase mb-1">
                                         <i class="bi bi-bar-chart-fill me-2"></i>ยอดผู้เข้าใช้งานสะสมทั้งหมด (Total Visits)
                                     </h6>
-                                    <h1 class="display-3 fw-bold mb-0" id="lifetimeTotalCount">0</h1>
+                                    
+                                    <div class="d-flex align-items-baseline">
+                                        <h1 class="display-3 fw-bold mb-0" id="lifetimeTotalCount">0</h1>
+                                        <span class="fs-3 text-white-50 ms-2">คน</span>
+                                    </div>
+
                                     <p class="mb-0 text-white-50 small mt-1">*นับรวมทุก Log ตั้งแต่เริ่มใช้งานระบบจนถึงปัจจุบัน</p>
                                 </div>
                                 <div class="col-md-4 border-start border-white border-opacity-25 ps-md-4 mt-3 mt-md-0">
@@ -95,25 +115,34 @@
                             <h5 class="fw-bold text-primary mb-0"><i class="bi bi-cloud-download-fill me-2"></i>ดาวน์โหลดรายงาน (Quick Export)</h5>
                             <span class="text-muted small">เลือกช่วงเวลาที่ต้องการดาวน์โหลดข้อมูลเป็นไฟล์ CSV</span>
                         </div>
+                        
                         <div class="row g-3">
                             <div class="col-md-3 col-6">
-                                <button onclick="exportReport('daily')" class="btn btn-outline-success w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 card-hover-effect">
-                                    <i class="bi bi-calendar-check fs-2 mb-2"></i><span class="fw-bold">รายวัน</span><small class="text-muted">(Daily)</small>
+                                <button onclick="exportReport('daily')" class="btn btn-outline-success w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 shadow-sm">
+                                    <i class="bi bi-calendar-check fs-2 mb-2"></i>
+                                    <span class="fw-bold">รายวัน</span>
+                                    <small class="text-muted">(Daily)</small>
                                 </button>
                             </div>
                             <div class="col-md-3 col-6">
-                                <button onclick="exportReport('monthly')" class="btn btn-outline-primary w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 card-hover-effect">
-                                    <i class="bi bi-calendar-month fs-2 mb-2"></i><span class="fw-bold">รายเดือน</span><small class="text-muted">(Monthly)</small>
+                                <button onclick="exportReport('monthly')" class="btn btn-outline-primary w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 shadow-sm">
+                                    <i class="bi bi-calendar-month fs-2 mb-2"></i>
+                                    <span class="fw-bold">รายเดือน</span>
+                                    <small class="text-muted">(Monthly)</small>
                                 </button>
                             </div>
                             <div class="col-md-3 col-6">
-                                <button onclick="exportReport('quarterly')" class="btn btn-outline-info w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 card-hover-effect">
-                                    <i class="bi bi-calendar-range fs-2 mb-2"></i><span class="fw-bold">รายไตรมาส</span><small class="text-muted">(Quarterly)</small>
+                                <button onclick="exportReport('quarterly')" class="btn btn-outline-info w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 shadow-sm">
+                                    <i class="bi bi-calendar-range fs-2 mb-2"></i>
+                                    <span class="fw-bold">รายไตรมาส</span>
+                                    <small class="text-muted">(Quarterly)</small>
                                 </button>
                             </div>
                             <div class="col-md-3 col-6">
-                                <button onclick="exportReport('yearly')" class="btn btn-outline-warning text-dark w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 card-hover-effect">
-                                    <i class="bi bi-calendar3 fs-2 mb-2"></i><span class="fw-bold">รายปี</span><small class="text-muted">(Yearly)</small>
+                                <button onclick="exportReport('yearly')" class="btn btn-outline-warning text-dark w-100 py-3 d-flex flex-column align-items-center justify-content-center h-100 shadow-sm">
+                                    <i class="bi bi-calendar3 fs-2 mb-2"></i>
+                                    <span class="fw-bold">รายปี</span>
+                                    <small class="text-muted">(Yearly)</small>
                                 </button>
                             </div>
                         </div>
@@ -135,23 +164,60 @@
                                 <option value="yearly_custom" id="optYearly">รายปี (2025-XXXX)</option>
                             </select>
                         </div>
-                        <div class="col-md-2 col-sm-6"><label class="form-label small fw-bold">วันที่เริ่มต้น</label><input type="date" id="filterStartDate" class="form-control form-control-sm"></div>
-                        <div class="col-md-2 col-sm-6"><label class="form-label small fw-bold">วันที่สิ้นสุด</label><input type="date" id="filterEndDate" class="form-control form-control-sm"></div>
-                        <div class="col-md-2 col-sm-6"><label class="form-label small fw-bold">คณะ (Faculty)</label><select id="filterFaculty" class="form-select form-select-sm"><option value="">-- ทั้งหมด --</option></select></div>
-                        <div class="col-md-2 col-sm-6"><label class="form-label small fw-bold">หน่วยงาน / อื่นๆ</label><select id="filterOrganization" class="form-select form-select-sm"><option value="">-- ทั้งหมด --</option></select></div>
+                        <div class="col-md-2 col-sm-6">
+                            <label class="form-label small fw-bold">วันที่เริ่มต้น</label>
+                            <input type="date" id="filterStartDate" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-2 col-sm-6">
+                            <label class="form-label small fw-bold">วันที่สิ้นสุด</label>
+                            <input type="date" id="filterEndDate" class="form-control form-control-sm">
+                        </div>
+                        
                         <div class="col-md-2 col-sm-6">
                             <label class="form-label small fw-bold">ประเภทผู้ใช้</label>
-                            <select id="filterUserType" class="form-select form-select-sm">
-                                <option value="">-- ทั้งหมด --</option><option value="Internal">ภายใน</option><option value="External">ภายนอก</option>
+                            <select id="filterUserType" class="form-select form-select-sm" onchange="handleUserTypeChange()">
+                                <option value="Internal">-- ทั้งหมด --</option>
+                                <option value="Student">นักศึกษา</option>
+                                <option value="Staff">บุคลากรภายใน</option>
+                                <option value="External">บุคคลภายนอก</option>
                             </select>
                         </div>
-                        <div class="col-md-2 col-sm-6"><label class="form-label small fw-bold">ระดับการศึกษา</label><select id="filterLevel" class="form-select form-select-sm"><option value="">-- ทั้งหมด --</option></select></div>
-                        <div class="col-md-2 col-sm-6"><label class="form-label small fw-bold">ชั้นปี</label><select id="filterYear" class="form-select form-select-sm"><option value="">-- ทั้งหมด --</option></select></div>
+
+                        <div class="col-md-2 col-sm-6 d-none" id="yearFilterContainer">
+                            <label class="form-label small fw-bold">ระดับการศึกษา / ชั้นปี</label>
+                            <select id="filterEducationLevel" class="form-select form-select-sm">
+                                <option value="">-- ทั้งหมด --</option>
+                                <option value="1">ชั้นปีที่ 1</option>
+                                <option value="2">ชั้นปีที่ 2</option>
+                                <option value="3">ชั้นปีที่ 3</option>
+                                <option value="4">ชั้นปีที่ 4</option>
+                                <option value="Undergraduate">ปริญญาตรี</option> 
+                                <option value="Master">ปริญญาโท</option>
+                                <option value="Doctoral">ปริญญาเอก</option>
+                            </select>
+                        </div>
+
                         <div class="col-md-4 col-sm-6">
                             <div class="d-flex gap-2">
-                                <button type="button" onclick="applyFilters()" class="btn btn-primary btn-sm fw-bold flex-fill"><i class="bi bi-search me-1"></i> แสดงผล</button>
-                                <button type="button" onclick="clearFilters()" class="btn btn-outline-secondary btn-sm flex-fill"><i class="bi bi-x-circle me-1"></i> ล้างค่า</button>
+                                <button type="button" onclick="applyFilters()" class="btn btn-primary btn-sm fw-bold flex-fill">
+                                    <i class="bi bi-search me-1"></i> แสดงผล
+                                </button>
+                                <button type="button" onclick="clearFilters()" class="btn btn-outline-secondary btn-sm flex-fill">
+                                    <i class="bi bi-x-circle me-1"></i> ล้างค่า
+                                </button>
                             </div>
+                        </div>
+                    </div>
+
+                    <div id="dynamicCheckboxContainer" class="card border-0 shadow-sm mt-3 p-3 bg-light" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="fw-bold text-primary mb-0" id="checkboxGroupTitle">เลือกคณะ (Faculty)</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="selectAllCheckboxes" onclick="toggleSelectAll(this)">
+                                <label class="form-check-label small fw-bold" for="selectAllCheckboxes">เลือกทั้งหมด</label>
+                            </div>
+                        </div>
+                        <div id="checkboxList" class="row g-2 custom-scrollbar" style="max-height: 150px; overflow-y: auto;">
                         </div>
                     </div>
                 </form>
@@ -217,12 +283,12 @@
                         </div>
                         <div class="bg-light p-3 rounded custom-scrollbar" style="height: 300px; overflow-y: auto;">
                             <div id="feedbackCommentList" class="d-flex flex-column gap-2">
-                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-<div class="col-lg-6">
+                <div class="col-lg-6">
                     <div class="card border-0 shadow-sm p-3 h-100">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h6 class="fw-bold text-dark mb-0">4. เวลาใช้งานเฉลี่ย (นาที) ต่อเครื่อง</h6>
@@ -261,6 +327,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <div class="bg-light p-3 rounded flex-grow-1" style="min-height: 250px;">
                             <canvas id="pcAvgTimeChart"></canvas>
                         </div>
