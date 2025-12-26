@@ -1,4 +1,4 @@
-/* admin-manage.js (Final Fix: Sequential ID without leading zero & Single Select Lock) */
+/* admin-manage.js (Final Fix: Real-time Sync & Sequential ID & Logic) */
 
 let pcModal; 
 
@@ -14,6 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     renderPcTable();
+
+    // ✅✅✅ เพิ่มส่วนนี้: สั่งให้หน้านี้รีเฟรชข้อมูลทันที เมื่อหน้าอื่นมีการแก้ไขข้อมูล
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'ck_pcs') {
+            console.log('🔄 ข้อมูลเครื่องมีการเปลี่ยนแปลงจากหน้าอื่น... กำลังรีเฟรช');
+            renderPcTable(); // วาดตารางใหม่ทันที
+        }
+    });
 });
 
 // --- 1. RENDER TABLE ---
@@ -21,6 +29,7 @@ function renderPcTable() {
     const tbody = document.getElementById('pcTableBody');
     if (!tbody) return;
 
+    // ดึงข้อมูลล่าสุดจาก DB ทุกครั้งที่เรียกฟังก์ชันนี้
     let pcs = (DB.getPCs && typeof DB.getPCs === 'function') ? DB.getPCs() : [];
     const searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase() : '';
 
@@ -187,22 +196,16 @@ function renderSoftwareCheckboxes(pcId) {
     });
 }
 
-// ✅ 1. ฟังก์ชันคลิกการ์ด (สลับสถานะ)
 function toggleSoftwareCard(id) {
     const checkbox = document.getElementById(`sw_${id}`);
-    
-    if (!checkbox || checkbox.disabled) return; // ถ้าล็อกอยู่ห้ามกด
-
+    if (!checkbox || checkbox.disabled) return;
     checkbox.checked = !checkbox.checked;
-    refreshCheckboxState(); // คำนวณสถานะล็อกใหม่ทันที
+    refreshCheckboxState();
 }
 
-// ✅ 2. ฟังก์ชันจัดการ Logic การล็อก (หัวใจสำคัญ)
 function refreshCheckboxState() {
     const type = document.getElementById('editPcType').value;
     const checkboxes = document.querySelectorAll('input[name="pcSoftware"]');
-    
-    // เช็คว่ามีการเลือกอย่างน้อย 1 ตัวไหม
     const currentlyHasSelection = Array.from(checkboxes).some(c => c.checked);
 
     checkboxes.forEach(cb => {
@@ -211,37 +214,24 @@ function refreshCheckboxState() {
         const card = document.getElementById(`card_${swId}`);
         const icon = document.getElementById(`icon_${swId}`);
         
-        // --- กฎข้อที่ 1: General ห้ามเลือก AI ---
+        // 1. General ห้ามเลือก AI
         const isDisabledByType = (type === 'General' && swType === 'AI');
-        if (isDisabledByType && cb.checked) {
-            cb.checked = false; // เอาติ๊กออกถ้าเปลี่ยนกลับเป็น General
-        }
+        if (isDisabledByType && cb.checked) cb.checked = false;
 
-        // --- กฎข้อที่ 2: ถ้าเลือกแล้ว 1 ตัว ให้ล็อกตัวอื่นทั้งหมด ---
-        // (ล็อกเฉพาะตัวที่ไม่ได้ถูกเลือก)
+        // 2. Lock Single Selection (ถ้าเลือกแล้ว ตัวอื่นห้ามเลือก)
         const isDisabledByLock = currentlyHasSelection && !cb.checked;
-
-        // รวมสถานะ Disabled
         const finalDisabled = isDisabledByType || isDisabledByLock;
         cb.disabled = finalDisabled;
 
-        // --- อัปเดต UI ---
         if (card) {
             if (finalDisabled) {
-                // สถานะ Locked (สีเทา)
                 card.classList.remove('active');
                 card.classList.add('locked');
-                
-                if(icon) {
-                    if (isDisabledByType) icon.className = 'bi bi-lock-fill text-secondary fs-5'; // รูปแม่กุญแจ
-                    else icon.className = 'bi bi-circle text-muted fs-5 opacity-25'; // รูปวงกลมจาง
-                }
+                if(icon) icon.className = isDisabledByType ? 'bi bi-lock-fill text-secondary fs-5' : 'bi bi-circle text-muted fs-5 opacity-25';
             } else {
-                // สถานะ Normal / Active
                 card.classList.remove('locked');
                 card.style.opacity = '1';
                 card.style.pointerEvents = 'auto';
-
                 if (cb.checked) {
                     card.classList.add('active');
                     if(icon) icon.className = 'bi bi-check-circle-fill text-primary fs-5';
@@ -254,7 +244,7 @@ function refreshCheckboxState() {
     });
 }
 
-// --- 3. SAVE & DELETE (Fix ID Generation) ---
+// --- 3. SAVE & DELETE ---
 function savePC() {
     const id = document.getElementById('editPcId').value;
     const name = document.getElementById('editPcName').value.trim();
@@ -272,28 +262,18 @@ function savePC() {
     }
 
     let pcs = DB.getPCs();
-    const pcData = {
-        name, status, pcType: type, installedSoftware: selectedSoftware
-    };
+    const pcData = { name, status, pcType: type, installedSoftware: selectedSoftware };
 
     if (id) {
-        // --- แก้ไขข้อมูลเดิม ---
         const index = pcs.findIndex(p => String(p.id) === String(id));
         if (index !== -1) {
             pcs[index] = { ...pcs[index], ...pcData };
         }
     } else {
-        // --- สร้างใหม่ (แก้ ID ให้เป็นเลขปกติ เช่น 8) ---
-        // หาเลข ID สูงสุดที่มีอยู่แล้วบวก 1
+        // Auto ID: หาเลขมากสุด + 1 (ไม่เติม 0)
         let maxId = 0;
-        pcs.forEach(p => {
-            let num = parseInt(p.id);
-            if (!isNaN(num) && num > maxId) maxId = num;
-        });
-        
-        // สร้าง ID ใหม่เป็น String แบบไม่เติม 0 เช่น "8"
+        pcs.forEach(p => { let num = parseInt(p.id); if (!isNaN(num) && num > maxId) maxId = num; });
         const newId = (maxId + 1).toString();
-        
         pcs.push({ id: newId, ...pcData });
     }
 

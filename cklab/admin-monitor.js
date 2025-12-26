@@ -144,6 +144,10 @@ function updateMonitorStats(allPcs) {
     setVal('count-maintenance', counts.maintenance);
 }
 
+// ==========================================
+// 🖥️ Render Monitor Grid (UI สวยงาม)
+// ==========================================
+
 function renderMonitor() {
     const grid = document.getElementById('monitorGrid');
     if(!grid) return;
@@ -188,7 +192,7 @@ function renderMonitor() {
             `<div class="mt-1 fw-bold text-dark text-truncate" title="${pc.currentUser}"><i class="bi bi-person-fill"></i> ${pc.currentUser}</div>` : 
             `<div class="mt-1 text-muted">-</div>`;
 
-        // --- 2. Show AI / Software ---
+        // --- 2. AI / Software ---
         let softwareHtml = '';
         if (Array.isArray(pc.installedSoftware) && pc.installedSoftware.length > 0) {
             softwareHtml = '<div class="mt-2 d-flex flex-wrap justify-content-center gap-1">';
@@ -205,7 +209,8 @@ function renderMonitor() {
             softwareHtml = '<div class="mt-2" style="height: 22px;"></div>';
         }
 
-let myBookings = bookings.filter(b => 
+        // --- 3. Booking Queue (DESIGN UPDATE 🎨) ---
+        let myBookings = bookings.filter(b => 
             String(b.pcId) === String(pc.id) && 
             b.date === todayStr && 
             ['approved', 'pending', 'completed', 'no_show'].includes(b.status)
@@ -218,11 +223,11 @@ let myBookings = bookings.filter(b =>
             // Container: พื้นหลังโปร่งใส ขอบบนบางๆ
             queueHtml = `<div class="mt-3 pt-2 border-top text-start">`;
             
-            // Header
-            queueHtml += `<div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="text-secondary fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px; opacity: 0.8;">
-                    <i class="bi bi-list-task me-1"></i>TIMELINE
-                </span>
+            // Header: ตัวเล็ก สีเทา
+            queueHtml += `<div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom border-secondary-subtle">
+                <small class="fw-bold text-secondary" style="font-size: 0.65rem; letter-spacing: 0.5px;">
+                    <i class="bi bi-calendar-week me-1"></i>TIMELINE
+                </small>
             </div>`;
             
             queueHtml += `<div class="d-flex flex-column gap-1">`;
@@ -237,52 +242,52 @@ let myBookings = bookings.filter(b =>
                 const isPast = (curTimeVal >= endMins) || b.status === 'completed';
                 const isNoShow = b.status === 'no_show';
                 
-                // --- 🎨 STYLE CONFIGURATION ---
+                // --- Styling Logic ---
                 let rowClass = "rounded-2 px-2 py-1 d-flex justify-content-between align-items-center";
-                let textStyle = "font-size: 0.75rem;";
-                let statusIcon = "";
-                let rowStyle = ""; // Custom inline style
+                let textStyle = "font-size: 0.75rem; color: #495057;";
+                let statusBadge = "";
+                let rowStyle = ""; // Custom Inline Style
 
                 if (isNoShow) {
                     // No Show: สีเทาเข้ม + ไอคอนส้ม (ดูสุภาพกว่าแดง)
-                    textStyle += " color: #6c757d;"; // เทาเข้ม
-                    rowStyle = "background-color: #f8f9fa;"; // พื้นหลังเทาจางๆ
-                    statusIcon = '<i class="bi bi-person-slash text-warning ms-1" style="font-size: 0.8em;" title="Missed"></i>';
+                    textStyle = "font-size: 0.75rem; color: #6c757d;";
+                    rowStyle = "background-color: #f8f9fa;";
+                    statusBadge = '<i class="bi bi-person-slash text-warning ms-1" style="font-size: 0.8em;" title="Missed"></i>';
                 
                 } else if (isPast) {
                     // Past: สีเทาจางๆ (ไม่ขีดฆ่า)
-                    textStyle += " color: #adb5bd;"; // เทาอ่อน
-                    statusIcon = '<i class="bi bi-check2 text-success opacity-25 ms-1" style="font-size: 0.9em;"></i>';
+                    textStyle = "font-size: 0.75rem; color: #adb5bd;";
+                    statusBadge = '<i class="bi bi-check2 text-success opacity-25 ms-1" style="font-size: 0.9em;"></i>';
                 
                 } else if (isNow) {
                     // NOW: สีน้ำเงิน + พื้นหลังขาว + เงา (Pop out)
                     rowClass += " bg-white shadow-sm border-start border-3 border-primary";
-                    textStyle += " color: #0d6efd; font-weight: bold;";
-                    statusIcon = '<span class="spinner-grow spinner-grow-sm text-primary ms-1" style="width: 5px; height: 5px;" role="status"></span>';
+                    textStyle = "font-size: 0.75rem; color: #0d6efd; font-weight: bold;";
+                    statusBadge = '<div class="spinner-grow text-primary" style="width: 6px; height: 6px;" role="status"></div>';
                 
                 } else {
-                    // Future: สีดำปกติ
-                    textStyle += " color: #212529;";
+                    // Future: ปกติ
+                    // rowClass += " hover-bg-gray"; 
                 }
 
-                // สร้าง HTML
+                // สร้างแถวรายการ
                 queueHtml += `
                 <div class="${rowClass}" style="${rowStyle}">
                     <div class="d-flex align-items-center gap-2">
                         <span style="${textStyle} font-family: monospace;">${b.startTime}-${b.endTime}</span>
-                        ${statusIcon}
                     </div>
-                    <span class="text-truncate" style="${textStyle} max-width: 80px;" title="${b.userName}">
-                        ${b.userName}
-                    </span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-truncate" style="${textStyle} max-width: 80px;" title="${b.userName}">${b.userName}</span>
+                        ${statusBadge}
+                    </div>
                 </div>`;
             });
             queueHtml += `</div></div>`;
         } else {
-            // Empty State
-            queueHtml = `<div class="mt-3 pt-3 border-top text-center">
-                <div class="text-muted opacity-25 small" style="height: 60px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-                    <i class="bi bi-calendar-minus fs-5 mb-1"></i>
+            // Empty State: Minimal
+            queueHtml = `<div class="mt-3 text-center opacity-25">
+                <div style="height: 60px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                    <i class="bi bi-calendar-x" style="font-size: 1.5rem;"></i>
                     <span style="font-size: 0.7rem;">ว่างตลอดวัน</span>
                 </div>
             </div>`;
