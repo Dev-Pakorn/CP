@@ -1,4 +1,4 @@
-/* auth.js - Kiosk Logic (Final: AI Slot Fix & Smart Fallback) */
+/* auth.js - Kiosk Logic (Final: Unlimited + Fix Year/Level Data) */
 
 function getSystemPCId() {
     if (window.location.hash) {
@@ -134,7 +134,7 @@ function checkMachineStatus() {
     }
     
     // Show Software Tags on Kiosk Screen
-    const swTagContainer = document.getElementById('modalSoftwareTags'); // (Reuse ID from modal if exists in main layout)
+    const swTagContainer = document.getElementById('modalSoftwareTags'); 
     if (swTagContainer) {
          swTagContainer.innerHTML = '';
          if (pc.installedSoftware && pc.installedSoftware.length > 0) {
@@ -195,7 +195,15 @@ function verifyUBUUser() {
     const verifyCard = document.getElementById('internalVerifyCard');
     
     if (user) {
-        verifiedUserData = { id: id, name: user.prefix + user.name, faculty: user.faculty, role: user.role };
+        // ✅ แก้ไข: เก็บข้อมูล Level และ Year เพิ่มเติม
+        verifiedUserData = { 
+            id: id, 
+            name: user.prefix + user.name, 
+            faculty: user.faculty, 
+            role: user.role,
+            level: user.level, // เก็บระดับการศึกษา
+            year: user.year    // เก็บชั้นปี
+        };
         document.getElementById('showName').innerText = verifiedUserData.name;
         document.getElementById('showFaculty').innerText = verifiedUserData.faculty;
         const roleEl = document.getElementById('showRole');
@@ -240,7 +248,7 @@ function validateForm() {
     }
 }
 
-// ✅✅✅ MAIN CONFIRM FUNCTION (Updated Logic) ✅✅✅
+// ✅✅✅ MAIN CONFIRM FUNCTION (Updated: Unlimited + Log Data) ✅✅✅
 function confirmCheckIn() {
     const config = DB.getGeneralConfig();
     if (config.labStatus === 'closed') {
@@ -256,7 +264,10 @@ function confirmCheckIn() {
             id: document.getElementById('extIdCard').value.trim(),
             name: document.getElementById('extName').value.trim(),
             faculty: document.getElementById('extOrg').value.trim() || 'บุคคลทั่วไป',
-            role: 'external'
+            role: 'external',
+            // ✅ เพิ่ม Default Data สำหรับบุคคลภายนอก
+            level: 'บุคคลทั่วไป',
+            year: '-'
         };
     }
     
@@ -270,7 +281,7 @@ function confirmCheckIn() {
         String(b.pcId) === String(pcId) && 
         b.date === todayStr && 
         b.status === 'approved' && 
-        b.userName === verifiedUserData.name // ชื่อต้องตรง
+        b.userName === verifiedUserData.name 
     );
     
     let usageDetail = 'Walk-in User';
@@ -294,40 +305,25 @@ function confirmCheckIn() {
         return;
     }
 
-    // --- 2. คำนวณเวลาจบ (Slot Logic) ---
-    // หา Slot ปัจจุบัน (กรอง All Day ทิ้ง เพื่อเอารอบย่อย)
-    const allSlots = (DB.getAiTimeSlots && typeof DB.getAiTimeSlots === 'function') ? DB.getAiTimeSlots() : [];
-    const activeSlots = allSlots.filter(s => s.active && !s.label.includes("ตลอดวัน"));
-    
-    let currentSlot = null;
-    let forceEndTime = null;
-
-    activeSlots.forEach(slot => {
-        const [sh, sm] = slot.start.split(':').map(Number);
-        const [eh, em] = slot.end.split(':').map(Number);
-        const startMins = sh * 60 + sm;
-        const endMins = eh * 60 + em;
-        
-        // ถ้าเวลาปัจจุบันอยู่ในช่วง (Start - 15 mins) ถึง End
-        if (currentHm >= (startMins - 15) && currentHm < endMins) {
-            currentSlot = slot;
-            forceEndTime = endMins; // เก็บเวลาจบเป็นนาที
-        }
-    });
+    // --- 2. ตั้งค่าเวลา (Unlimited) ---
+    const forceEndTime = null; 
+    const currentSlotId = 'Unlimited'; 
     
     // --- 3. บันทึก Session ---
-    // ถ้าไม่เจอ Slot (นอกเวลา หรือ General) -> forceEndTime = null (Unlimited)
     const sessionData = {
         user: { 
             id: verifiedUserData.id, 
             name: verifiedUserData.name, 
             role: verifiedUserData.role, 
-            faculty: verifiedUserData.faculty 
+            faculty: verifiedUserData.faculty,
+            // ✅ เพิ่มข้อมูลลง Session
+            level: verifiedUserData.level,
+            year: verifiedUserData.year
         },
         pcId: pcId, 
         startTime: Date.now(), 
-        forceEndTime: forceEndTime, // ส่งค่านี้ไปให้ timer.js
-        slotId: currentSlot ? currentSlot.id : null
+        forceEndTime: forceEndTime, 
+        slotId: currentSlotId
     };
     
     DB.setSession(sessionData); 
@@ -335,13 +331,21 @@ function confirmCheckIn() {
     // อัปเดตสถานะเครื่องใน DB
     DB.updatePCStatus(pcId, 'in_use', verifiedUserData.name, { forceEndTime: forceEndTime }); 
     
-    // บันทึก Log
+    // บันทึก Log (Log เริ่มต้น) - เพิ่ม level และ year ลงไป
     DB.saveLog({
         action: 'START_SESSION',
-        userId: verifiedUserData.id, userName: verifiedUserData.name, 
-        userRole: verifiedUserData.role, userFaculty: verifiedUserData.faculty,
-        pcId: pcId, startTime: new Date().toISOString(), details: usageDetail,
-        slotId: currentSlot ? (currentSlot.label || currentSlot.id) : 'Unlimited' 
+        userId: verifiedUserData.id, 
+        userName: verifiedUserData.name, 
+        userRole: verifiedUserData.role, 
+        userFaculty: verifiedUserData.faculty,
+        // ✅ เพิ่มข้อมูลลง Log
+        userLevel: verifiedUserData.level,
+        userYear: verifiedUserData.year,
+        
+        pcId: pcId, 
+        startTime: new Date().toISOString(), 
+        details: usageDetail,
+        slotId: currentSlotId 
     });
 
     // ไปหน้าจับเวลา

@@ -1,4 +1,4 @@
-/* mock-db.js (Final Version: Dynamic Time Slots & ForceEndTime Support) */
+/* mock-db.js (Final Fix: Correct Log Timestamp Logic) */
 
 // ==========================================
 // 1. MOCK DATA (ข้อมูลจำลอง)
@@ -10,7 +10,7 @@ const DEFAULT_AI_SLOTS = [
     { id: 2, start: "10:30", end: "12:00", label: "10:30 - 12:00", active: true },
     { id: 3, start: "13:00", end: "15:00", label: "13:00 - 15:00", active: true }, 
     { id: 4, start: "15:00", end: "16:30", label: "15:00 - 16:30", active: true },
-    { id: 5, start: "09:00", end: "16:30", label: "ตลอดวัน (All Day)", active: true } // ✅ เพิ่มรอบตลอดวัน
+    { id: 5, start: "09:00", end: "16:30", label: "ตลอดวัน (All Day)", active: true } 
 ];
 
 // 1.1 ข้อมูลการจอง (Booking)
@@ -22,7 +22,7 @@ const DEFAULT_BOOKINGS = [
         date: new Date().toLocaleDateString('en-CA'), 
         startTime: '09:00', endTime: '11:00', 
         note: 'ทำโปรเจกต์จบ', 
-        status: 'pending' // pending, approved, rejected, completed
+        status: 'pending' 
     },
     { 
         id: 'b2', 
@@ -144,7 +144,7 @@ const MOCK_REG_DB = {
 };
 
 
-// 1.8 ข้อมูล Log จำลอง
+// 1.8 ข้อมูล Log จำลอง (แก้ไข: เวลาไม่ทะลุอนาคต)
 const MOCK_REG_DB_USERS_FOR_LOG = Object.values(MOCK_REG_DB); 
 
 function generateMockLogEntry(dateOffsetDays) {
@@ -159,22 +159,27 @@ function generateMockLogEntry(dateOffsetDays) {
     if (targetPC.installedSoftware && targetPC.installedSoftware.length > 0) {
         const installedItem = targetPC.installedSoftware[Math.floor(Math.random() * targetPC.installedSoftware.length)];
         usedSoftwareLog.push(installedItem);
-        isAILog = installedItem.toLowerCase().includes('gpt') || 
-                  installedItem.toLowerCase().includes('claude') || 
-                  installedItem.toLowerCase().includes('perplexity') || 
-                  installedItem.toLowerCase().includes('midjourney') || 
-                  installedItem.toLowerCase().includes('scispace') || 
-                  installedItem.toLowerCase().includes('botnoi') || 
-                  installedItem.toLowerCase().includes('gamma') ||
-                  installedItem.toLowerCase().includes('grammarly') ||
-                  installedItem.toLowerCase().includes('canva');
+        // เช็คว่าเป็น AI หรือไม่
+        const lower = installedItem.toLowerCase();
+        isAILog = lower.includes('gpt') || lower.includes('claude') || lower.includes('ai') || 
+                  lower.includes('perplexity') || lower.includes('midjourney') || lower.includes('botnoi') ||
+                  lower.includes('gamma') || lower.includes('scispace') || lower.includes('canva');
     }
 
+    // ✅ แก้ไข: กำหนดเวลาเป็นอดีตเสมอ
     let date = new Date();
     date.setDate(date.getDate() - dateOffsetDays); 
-    const startTime = date.getTime() - (Math.floor(Math.random() * 30) + 10) * 60 * 1000;
+    
+    // สุ่มเวลาจบ (EndTime) ให้เป็นอดีต (0-600 นาทีที่แล้ว)
+    const minutesAgo = Math.floor(Math.random() * 600); 
+    const endTime = date.getTime() - (minutesAgo * 60 * 1000);
+    
+    // ระยะเวลาใช้งาน (10-120 นาที)
     const durationMinutes = Math.floor(Math.random() * 120) + 10;
-    const endTime = startTime + durationMinutes * 60 * 1000;
+    
+    // เวลาเริ่ม = จบ - ระยะเวลา
+    const startTime = endTime - (durationMinutes * 60 * 1000);
+    
     const satisfactionScore = Math.floor(Math.random() * 5) + 1; 
 
     return {

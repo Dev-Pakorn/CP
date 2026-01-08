@@ -1,4 +1,4 @@
-/* timer.js (Final Version: User Extend + Admin Sync + Unlimited Support) */
+/* timer.js (Final Version: No User Extend) */
 
 let timerInterval; 
 
@@ -40,8 +40,7 @@ function setupCountdownMode(session) {
     const label = document.getElementById('timerLabel');
     if(label) label.innerText = "เวลาที่เหลือในรอบนี้ (Remaining Time)";
     
-    const btnExtend = document.getElementById('btnExtend');
-    if(btnExtend) btnExtend.style.display = 'inline-block'; // โชว์ปุ่มต่อเวลา
+    // (เอาส่วนแสดงปุ่ม btnExtend ออกแล้ว)
 
     updateCountdownSlot(); 
     if(timerInterval) clearInterval(timerInterval);
@@ -56,12 +55,7 @@ function setupUnlimitedMode() {
     const label = document.getElementById('timerLabel');
     if(label) label.innerText = "เวลาที่ใช้งานไปแล้ว (Elapsed Time)";
 
-    // Unlimited ก็สามารถกดต่อเวลาได้ (เพื่อเปลี่ยนเป็นโหมดจำกัดเวลาตามรอบ)
-    const btnExtend = document.getElementById('btnExtend');
-    if(btnExtend) {
-        btnExtend.style.display = 'inline-block';
-        btnExtend.innerHTML = '<i class="bi bi-clock-history me-2"></i>เปลี่ยนเป็นจบตามรอบ';
-    }
+    // (เอาส่วนแสดงปุ่ม btnExtend ออกแล้ว)
     
     updateTimer(); 
     if(timerInterval) clearInterval(timerInterval);
@@ -137,8 +131,8 @@ function updateCountdownSlot() {
             timerDisplay.classList.remove('text-dark');
             timerDisplay.classList.add('text-danger');
             
-            // แสดงข้อความเตือน
-            showAlert('⚠️ ใกล้หมดรอบเวลาแล้ว! กรุณาเตรียมตัว "ต่อเวลา"');
+            // แสดงข้อความเตือน (ปรับข้อความใหม่ ไม่ให้บอกว่าต่อเวลา)
+            showAlert('⚠️ ใกล้หมดรอบเวลาแล้ว! กรุณาบันทึกงานและเตรียมตัวเลิกใช้งาน');
             
             // เอฟเฟกต์กระพริบถ้าน้อยกว่า 1 นาที
             if (diff < 60 * 1000) {
@@ -146,14 +140,14 @@ function updateCountdownSlot() {
             }
         } else {
             timerDisplay.classList.remove('text-danger');
-            timerDisplay.classList.add('text-dark'); // หรือสีขาวตาม Theme
+            timerDisplay.classList.add('text-dark');
             timerDisplay.style.opacity = '1';
             hideAlert();
         }
     }
 }
 
-// ✅✅✅ ฟังก์ชัน Sync ข้อมูลกับ Admin (สำคัญมาก!) ✅✅✅
+// ✅✅✅ ฟังก์ชัน Sync ข้อมูลกับ Admin ✅✅✅
 function syncWithAdminUpdates() {
     const session = DB.getSession(); 
     if (!session || !session.pcId) return;
@@ -172,7 +166,6 @@ function syncWithAdminUpdates() {
         }
 
         // กรณี 2: Admin ต่อเวลาให้ (forceEndTime ใน DB ไม่ตรงกับ Session)
-        // หรือ Admin เปลี่ยนจาก Unlimited -> Limited
         const dbForceTime = pc.forceEndTime;
         const localForceTime = session.forceEndTime;
 
@@ -191,122 +184,17 @@ function syncWithAdminUpdates() {
             }
             
             hideAlert();
-            // alert("เวลาใช้งานของคุณได้รับการอัปเดตโดย Admin");
         }
     }
 }
 
-// ✅✅✅ ฟังก์ชันขอต่อเวลา (User กดเอง) ✅✅✅
-function tryExtendSession() {
-    const session = DB.getSession();
-    if (!session) return;
-
-    // 1. หาเวลาจบปัจจุบัน (Base Time)
-    let currentEndTimeInt;
-    
-    if (session.forceEndTime) {
-        currentEndTimeInt = session.forceEndTime;
-    } else {
-        // ถ้า Unlimited ให้หาว่าตอนนี้อยู่ใน Slot ไหน เพื่อเอาเวลาจบของ Slot นั้นเป็นฐาน
-        const currentSlot = getCurrentSlotFromTime();
-        if (currentSlot) {
-            const [eh, em] = currentSlot.end.split(':').map(Number);
-            currentEndTimeInt = eh * 60 + em;
-        } else {
-            // ถ้าไม่อยู่ใน Slot ปกติ (เช่นพักเที่ยง) ให้ใช้เวลาปัจจุบันปัดเศษชั่วโมง
-            const now = new Date();
-            currentEndTimeInt = (now.getHours() + 1) * 60;
-        }
-    }
-    
-    // 2. หารอบถัดไป
-    const allSlots = DB.getAiTimeSlots ? DB.getAiTimeSlots() : [];
-    // กรอง All Day ออก เพราะเราจะต่อเป็นรอบย่อย
-    const activeSlots = allSlots.filter(s => s.active && !s.label.includes("ตลอดวัน"));
-    
-    const endH = Math.floor(currentEndTimeInt / 60).toString().padStart(2, '0');
-    const endM = (currentEndTimeInt % 60).toString().padStart(2, '0');
-    const timeString = `${endH}:${endM}`;
-
-    // หารอบที่เริ่มตรงกับเวลาจบปัจจุบัน
-    const nextSlot = activeSlots.find(s => s.start === timeString);
-
-    if (!nextSlot) {
-        alert("⛔ ไม่สามารถต่อเวลาได้: ไม่พบรอบให้บริการถัดไป หรือห้องปิดแล้ว");
-        return;
-    }
-
-    // 3. เช็ค Booking ชนไหม
-    const bookings = DB.getBookings();
-    const todayStr = new Date().toLocaleDateString('en-CA');
-    
-    const conflict = bookings.find(b => 
-        String(b.pcId) === String(session.pcId) &&
-        b.date === todayStr &&
-        ['approved', 'pending'].includes(b.status) &&
-        b.startTime === nextSlot.start 
-    );
-
-    if (conflict) {
-        alert(`⛔ ไม่สามารถต่อเวลาได้: มีการจองโดยคุณ ${conflict.userName} ในรอบถัดไป (${nextSlot.start} - ${nextSlot.end})`);
-        return;
-    }
-
-    // 4. ยืนยันและบันทึก
-    if(confirm(`✅ รอบถัดไปว่าง (${nextSlot.start} - ${nextSlot.end})\nยืนยันการต่อเวลาใช้งาน?`)) {
-        
-        const [nextEh, nextEm] = nextSlot.end.split(':').map(Number);
-        const newForceEndTime = nextEh * 60 + nextEm;
-
-        // อัปเดต Session
-        session.forceEndTime = newForceEndTime;
-        session.slotId = nextSlot.id; // อัปเดต Slot ID ถ้ามี
-        DB.setSession(session);
-
-        // อัปเดต DB (สำคัญ! เพื่อให้ Admin เห็นด้วย)
-        DB.updatePCStatus(session.pcId, 'in_use', session.user.name, { forceEndTime: newForceEndTime });
-
-        // Log
-        DB.saveLog({
-            action: 'EXTEND_SESSION',
-            userId: session.user.id,
-            userName: session.user.name,
-            pcId: session.pcId,
-            details: `User Self-Extended to: ${nextSlot.end}`
-        });
-
-        alert("🎉 ต่อเวลาสำเร็จ! ใช้งานได้จนถึง " + nextSlot.end);
-        
-        // รีเซ็ตโหมดเป็น Countdown ทันที
-        setupCountdownMode(session);
-    }
-}
-
-// Helper: หารอบเวลาจากเวลาปัจจุบัน
-function getCurrentSlotFromTime() {
-    const now = new Date();
-    const cur = now.getHours() * 60 + now.getMinutes();
-    const allSlots = DB.getAiTimeSlots();
-    const activeSlots = allSlots.filter(s => s.active && !s.label.includes("ตลอดวัน"));
-
-    return activeSlots.find(s => {
-        const [sh, sm] = s.start.split(':').map(Number);
-        const [eh, em] = s.end.split(':').map(Number);
-        const start = sh * 60 + sm;
-        const end = eh * 60 + em;
-        return cur >= start && cur < end;
-    });
-}
+// (ลบฟังก์ชัน tryExtendSession และ getCurrentSlotFromTime ออกแล้ว)
 
 // ฟังก์ชันเมื่อเวลาหมด
 function handleTimeUp() {
-    // เช็คอีกทีว่ามีคนจองต่อไหม (Real-time check)
-    // ... (Logic เดิม) ...
-    if(confirm("⏰ หมดเวลาการใช้งานในรอบนี้แล้ว\n\nกด 'OK' เพื่อขอต่อเวลา (ถ้าว่าง)\nกด 'Cancel' เพื่อเลิกใช้งาน")) {
-        tryExtendSession();
-    } else {
-        doCheckout(true);
-    }
+    // ปรับ Logic ให้ Check-out เลยโดยไม่ต้องถามเรื่องต่อเวลา
+    alert("⏰ หมดเวลาการใช้งานในรอบนี้แล้ว\nระบบจะทำการ Check-out โดยอัตโนมัติ");
+    doCheckout(true);
 }
 
 // --- Helpers UI ---
