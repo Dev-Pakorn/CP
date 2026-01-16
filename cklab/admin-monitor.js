@@ -1,4 +1,4 @@
-/* admin-monitor.js (Final: Include Walk-in/Admin History in Timeline) */
+/* admin-monitor.js (Final: Smart Reserved Tab + Complete Timeline) */
 
 let checkInModal, manageActiveModal;
 let currentTab = 'internal';
@@ -103,7 +103,7 @@ function renderMonitor() {
     updateMonitorStats(allPcs);
 
     const bookings = DB.getBookings();
-    const logs = DB.getLogs(); // ✅ ดึง Logs มาใช้ด้วย
+    const logs = DB.getLogs(); 
     
     // ดึงวันที่จาก Date Picker
     const dateInput = document.getElementById('monitorDate');
@@ -113,9 +113,26 @@ function renderMonitor() {
     const curTimeVal = now.getHours() * 60 + now.getMinutes();
 
     let displayPcs = allPcs;
+
+    // --- ✅ แก้ไข Logic การกรอง (Reserved Tab Show All Booked PCs) ---
     if (currentFilter !== 'all') {
-        displayPcs = displayPcs.filter(pc => pc.status === currentFilter);
+        if (currentFilter === 'reserved') {
+            cardBorder = 'border-warning border-2 shadow';
+            // กรณีเลือกแท็บ "จอง": ให้โชว์เครื่องที่มีการจองใน "วันที่เลือก" หรือสถานะเป็น reserved
+            displayPcs = displayPcs.filter(pc => {
+                const hasBooking = bookings.some(b => 
+                    String(b.pcId) === String(pc.id) && 
+                    b.date === selectedDateStr && 
+                    ['approved', 'pending'].includes(b.status)
+                );
+                return hasBooking || pc.status === 'reserved';
+            });
+        } else {
+            // กรณีแท็บ ว่าง/ใช้งาน: กรองตามสถานะจริง
+            displayPcs = displayPcs.filter(pc => pc.status === currentFilter);
+        }
     }
+
     if (searchQuery) {
         displayPcs = displayPcs.filter(pc => 
             pc.name.toLowerCase().includes(searchQuery) || 
@@ -160,17 +177,14 @@ function renderMonitor() {
             softwareHtml = '<div class="mt-2" style="height: 22px;"></div>';
         }
 
-        // --- ✅ STEP 1: ดึง Bookings ปกติ ---
+        // --- TIMELINE GENERATION (Booking + Logs) ---
         let timelineItems = bookings.filter(b => 
             String(b.pcId) === String(pc.id) && 
             b.date === selectedDateStr && 
             ['approved', 'pending', 'completed', 'no_show'].includes(b.status)
-        ).map(b => ({
-            ...b,
-            source: 'booking' // Mark source
-        }));
+        ).map(b => ({ ...b, source: 'booking' }));
 
-        // --- ✅ STEP 2: ดึง Log (Admin/Walk-in) มาผสม ---
+        // ผสมข้อมูลจาก Log (Walk-in / Admin)
         const dailyLogs = logs.filter(l => 
             String(l.pcId) === String(pc.id) && 
             l.action === 'START_SESSION' && 
@@ -184,7 +198,7 @@ function renderMonitor() {
             const logTimeVal = logH * 60 + logM;
             const logStartStr = `${String(logH).padStart(2,'0')}:${String(logM).padStart(2,'0')}`;
 
-            // เช็คว่า Log นี้ซ้ำกับ Booking ไหม (ถ้าเวลาใกล้กันมาก และชื่อเดียวกัน ให้ถือว่าเป็นอันเดียวกัน)
+            // กันซ้ำกับ Booking
             const isDuplicate = timelineItems.some(b => {
                 const [bh, bm] = b.startTime.split(':').map(Number);
                 const bTimeVal = bh * 60 + bm;
@@ -192,7 +206,6 @@ function renderMonitor() {
             });
 
             if (!isDuplicate) {
-                // ถ้าไม่ซ้ำ ให้หาเวลาจบ (End Time)
                 let endStr = "??:??";
                 const endLog = logs.find(el => 
                     el.action === 'END_SESSION' && 
@@ -207,23 +220,21 @@ function renderMonitor() {
                     endStr = `${String(ed.getHours()).padStart(2,'0')}:${String(ed.getMinutes()).padStart(2,'0')}`;
                 } else if (pc.status === 'in_use' && pc.currentUser === log.userName) {
                     endStr = "Now";
-                    status = 'active'; // กำลังใช้งาน
+                    status = 'active';
                 }
 
-                // สร้าง Pseudo-Booking object เพื่อนำไปโชว์
                 timelineItems.push({
                     id: 'log_' + log.timestamp,
                     startTime: logStartStr,
                     endTime: endStr,
                     userName: log.userName,
                     status: status,
-                    type: 'Walk-in', // หรือ 'Admin'
+                    type: 'Walk-in', 
                     source: 'log'
                 });
             }
         });
 
-        // --- STEP 3: เรียงลำดับตามเวลา ---
         timelineItems.sort((a, b) => a.startTime.localeCompare(b.startTime));
 
         // --- Render Timeline HTML ---
@@ -244,7 +255,7 @@ function renderMonitor() {
             timelineItems.forEach(b => {
                 const [sh, sm] = b.startTime.split(':').map(Number);
                 let startMins = sh * 60 + sm;
-                let endMins = 9999; // Default if 'Now' or '??'
+                let endMins = 9999; 
 
                 if (b.endTime !== 'Now' && b.endTime !== '??:??') {
                     const [eh, em] = b.endTime.split(':').map(Number);
@@ -304,7 +315,7 @@ function renderMonitor() {
             </div>`;
         }
 
-        // --- Usage Time Badge ---
+        // --- Usage Time Badge (แทน Unlimited) ---
         let usageTimeBadge = '';
         if (pc.status === 'in_use') {
             let durationText = 'เพิ่งเริ่ม';
@@ -442,6 +453,7 @@ function performForceCheckout(pcId) {
     const endTime = new Date();
     const durationMinutes = Math.floor((endTime - startTime) / 60000);
 
+    // บันทึก Log การเช็คเอ้าท์
     DB.saveLog({
         action: 'END_SESSION',   
         userId: userId,          
@@ -585,7 +597,7 @@ function switchTab(tabName) {
     } else {
         btnExt.classList.add('active', 'bg-primary', 'text-white'); btnExt.classList.remove('border');
         btnInt.classList.remove('active', 'bg-primary', 'text-white'); btnInt.classList.add('border');
-        formExt.classList.remove('d-none'); formExt.classList.add('d-none');
+        formExt.classList.remove('d-none'); formInt.classList.add('d-none');
         btnConfirm.disabled = false;
         btnConfirm.className = 'btn btn-success w-100 py-3 fw-bold shadow-sm';
     }
