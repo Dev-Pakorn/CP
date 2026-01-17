@@ -36,6 +36,10 @@
                 </div>
                 
                 <div class="d-flex gap-2">
+                    <button onclick="downloadCSVTemplate()" class="btn btn-outline-secondary shadow-sm" title="ดาวน์โหลดไฟล์ตัวอย่าง">
+                        <i class="bi bi-download me-1"></i> โหลดแบบฟอร์ม
+                    </button>
+
                     <input type="file" id="importFile" accept=".csv" style="display: none;" onchange="handleImport(this)">
                     <button onclick="document.getElementById('importFile').click()" class="btn btn-success shadow-sm">
                         <i class="bi bi-file-earmark-spreadsheet-fill me-1"></i> Import CSV
@@ -78,7 +82,7 @@
                                     <th>เวลา (Time)</th>
                                     <th>ผู้จอง (User)</th>
                                     <th>เครื่อง (PC)</th>
-                                    <th width="25%">รายละเอียด (Note / Software)</th> 
+                                    <th width="25%">Software / AI ที่จอง</th> 
                                     <th>สถานะ (Status)</th>
                                     <th class="text-end pe-4">จัดการ</th>
                                 </tr>

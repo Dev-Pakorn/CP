@@ -1,4 +1,4 @@
-/* admin-booking.js (Final: Validation on Save Only) */
+/* admin-booking.js (Final: Validation + Smart Import + Download Template 17/01/2026) */
 
 let bookingModal;
 
@@ -47,7 +47,7 @@ function initFormOptions() {
 }
 
 // ==========================================
-// 🔍 FILTER & AVAILABILITY LOGIC (หัวใจสำคัญ)
+// 🔍 FILTER & AVAILABILITY LOGIC
 // ==========================================
 function filterPCList() {
     const pcSelect = document.getElementById('bkPcSelect');
@@ -56,9 +56,9 @@ function filterPCList() {
     // 1. ดึงค่า Filter ต่างๆ
     const swName = document.getElementById('bkSoftwareFilter').value.toLowerCase();
     const selDate = document.getElementById('bkDate').value;
-    const selTimeSlot = document.getElementById('bkTimeSlot').value; // ex. "09:00-10:30"
+    const selTimeSlot = document.getElementById('bkTimeSlot').value; 
 
-    // ถ้ายังไม่เลือกวันเวลา (เผื่อเคสหลุด)
+    // ถ้ายังไม่เลือกวันเวลา
     if (!selDate || !selTimeSlot) {
         pcSelect.innerHTML = '<option value="">-- กรุณาเลือกวันและเวลาก่อน --</option>';
         return;
@@ -74,7 +74,6 @@ function filterPCList() {
     // เรียงชื่อเครื่อง
     pcs.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
 
-    // เก็บค่าที่เลือกไว้เดิม (เพื่อคงการเลือกไว้ถ้ายังเลือกได้)
     const currentValue = pcSelect.value;
 
     pcSelect.innerHTML = '<option value="">-- เลือกเครื่อง --</option>';
@@ -87,10 +86,9 @@ function filterPCList() {
             hasSoftware = pc.installedSoftware && pc.installedSoftware.some(s => s.toLowerCase().includes(swName));
         }
 
-        if (!hasSoftware) return; // ข้ามถ้าไม่มี Software ที่ต้องการ
+        if (!hasSoftware) return;
 
-        // --- B. เช็คสถานะ "ปิดปรับปรุง" (Maintenance) ---
-        // ถ้าเครื่องเสีย ไม่ว่าจะวันไหนก็ห้ามจอง
+        // --- B. เช็คสถานะ "ปิดปรับปรุง" ---
         if (pc.status === 'maintenance') {
             pcSelect.innerHTML += `<option value="${pc.id}" disabled style="color: #6c757d;">🔴 ${pc.name} (แจ้งซ่อม/ปิดปรับปรุง)</option>`;
             count++;
@@ -98,24 +96,19 @@ function filterPCList() {
         }
 
         // --- C. เช็คคิวว่าง (Availability Check) ---
-        // วนลูปดู Booking ทั้งหมด หาดูว่ามีอันไหนชนกับ วัน+เวลา ที่เราเลือกไหม
         const isConflict = bookings.some(b => {
-            // เช็คว่าเป็นเครื่องเดียวกัน + วันเดียวกัน + สถานะที่เป็นการจอง (Approved/Pending/InUse)
             if (String(b.pcId) !== String(pc.id)) return false;
             if (b.date !== selDate) return false;
-            if (!['approved', 'pending', 'in_use'].includes(b.status)) return false; // status อื่นๆ เช่น canceled ไม่นับ
+            if (!['approved', 'pending', 'in_use'].includes(b.status)) return false;
 
-            // เช็คเวลาชน (Time Overlap Logic)
-            // (Start A < End B) and (End A > Start B)
+            // เช็คเวลาชน
             return (selStart < b.endTime && selEnd > b.startTime);
         });
 
         // --- D. สร้าง Option ---
         if (isConflict) {
-            // ถ้าชน -> แสดงว่าไม่ว่าง (Disable)
             pcSelect.innerHTML += `<option value="${pc.id}" disabled style="color: #dc3545;">❌ ${pc.name} (ไม่ว่าง - จองแล้ว)</option>`;
         } else {
-            // ถ้าไม่ชน -> แสดงว่าว่าง (Enable)
             const selected = (String(pc.id) === String(currentValue)) ? 'selected' : '';
             pcSelect.innerHTML += `<option value="${pc.id}" ${selected} style="color: #198754;">🟢 ${pc.name} (ว่าง)</option>`;
         }
@@ -126,7 +119,6 @@ function filterPCList() {
         pcSelect.innerHTML = `<option value="" disabled>❌ ไม่พบเครื่องที่มีโปรแกรมนี้</option>`;
     }
     
-    // เรียก updateSoftwareList เพื่อเคลียร์ UI ส่วน AI เมื่อมีการเปลี่ยน Filter
     updateSoftwareList();
 }
 
@@ -134,26 +126,21 @@ function updateSoftwareList() {
     const pcId = document.getElementById('bkPcSelect').value;
     const container = document.getElementById('aiCheckboxList');
     
-    // เคลียร์ Hint text ด้านล่าง
     const hint = document.getElementById('pcSoftwareHint');
     if(hint) hint.innerText = "";
 
     if (!container) return;
 
-    // เคลียร์ Checkbox เก่า
     container.innerHTML = '';
 
-    // ถ้ายังไม่เลือกเครื่อง
     if (!pcId) {
         container.innerHTML = '<span class="text-muted small fst-italic">กรุณาเลือกเครื่องก่อน...</span>';
         return;
     }
 
-    // หาข้อมูลเครื่อง PC ที่เลือก
     const pcs = DB.getPCs();
     const pc = pcs.find(p => String(p.id) === String(pcId));
 
-    // สร้าง Checkbox ตามรายการ Software ที่ติดตั้งในเครื่องนั้น
     if (pc && pc.installedSoftware && pc.installedSoftware.length > 0) {
         pc.installedSoftware.forEach((sw, index) => {
             const div = document.createElement('div');
@@ -170,7 +157,7 @@ function updateSoftwareList() {
 }
 
 // ==========================================
-// 1. RENDER TABLE (ส่วนแสดงตารางรายการจอง)
+// 1. RENDER TABLE
 // ==========================================
 function renderBookings() {
     const tbody = document.getElementById('bookingTableBody');
@@ -262,7 +249,6 @@ function updateStatus(id, newStatus) {
         booking.status = newStatus;
         DB.saveBookings(bookings);
         
-        // ถ้าเป็นการยกเลิก/No Show -> คืนสถานะ PC เป็นว่าง (ถ้าสถานะเครื่องยังเป็น reserved อยู่)
         if (newStatus === 'no_show' || newStatus === 'rejected') {
             const pcs = DB.getPCs();
             const pc = pcs.find(p => String(p.id) === String(booking.pcId));
@@ -275,7 +261,7 @@ function updateStatus(id, newStatus) {
 }
 
 // ==========================================
-// 2. MODAL & SAVE LOGIC (แก้ไขตาม request)
+// 2. MODAL & SAVE LOGIC
 // ==========================================
 
 function openBookingModal() {
@@ -284,8 +270,6 @@ function openBookingModal() {
     const dateInput = document.getElementById('bkDate');
     if(dateInput) {
         dateInput.value = today;
-        
-        // ✅ ปลดล็อค: ลบการจำกัด min/max ออก เพื่อให้เลือกวันที่ในปฏิทินได้อิสระ
         dateInput.removeAttribute('min');
         dateInput.removeAttribute('max');
     }
@@ -317,35 +301,23 @@ function saveBooking() {
         return;
     }
 
-    // --- ✅ ด่านตรวจเช็ควัน (Validation on Save) ---
-    // สร้างวันที่แบบเที่ยงคืนเพื่อเปรียบเทียบ
+    // Validation
     const parts = date.split('-');
-    const selDate = new Date(parts[0], parts[1] - 1, parts[2]); // วันที่เลือก
-    const today = new Date(); // วันนี้
-    today.setHours(0,0,0,0); // รีเซ็ตเวลาเป็น 00:00
+    const selDate = new Date(parts[0], parts[1] - 1, parts[2]); 
+    const today = new Date(); 
+    today.setHours(0,0,0,0); 
 
-    // คำนวณความต่างวัน
     const diffTime = selDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    // เช็คว่าเกิน 1 วันหรือไม่ (เช่น วันนี้จองพรุ่งนี้ได้ แต่จองมะรืนไม่ได้)
     if (diffDays > 1) {
         alert("⚠️ ไม่สามารถจองล่วงหน้าเกิน 1 วันได้\n(ระบบอนุญาตให้จองได้เฉพาะวันนี้และพรุ่งนี้เท่านั้น)");
         return;
     }
-    
-    // (Optional) ถ้าไม่ต้องการให้จองย้อนหลัง ก็เปิดบรรทัดนี้ได้
-    /*
-    if (diffDays < 0) {
-        alert("⚠️ ไม่สามารถเลือกวันที่ย้อนหลังได้");
-        return;
-    }
-    */
-    // --------------------------------------------------
 
     const [start, end] = timeSlotStr.split('-');
 
-    // Double Check Conflict
+    // Conflict Check
     const bookings = DB.getBookings();
     const isDup = bookings.some(b => 
         b.date === date && 
@@ -362,7 +334,6 @@ function saveBooking() {
     const pcs = DB.getPCs();
     const pc = pcs.find(p => String(p.id) === String(pcId));
 
-    // ดึงรายการ Software AI
     let selectedSoftware = [];
     const checkboxes = document.querySelectorAll('#aiCheckboxList input:checked');
     checkboxes.forEach(cb => {
@@ -447,15 +418,19 @@ function processCSVData(csvText) {
 
         try {
             const cols = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
-            if (cols.length < 8) {
-                throw new Error(`คอลัมน์ไม่ครบ`);
+            // ต้องมีอย่างน้อย 9 คอลัมน์
+            if (cols.length < 9) {
+                throw new Error(`คอลัมน์ไม่ครบ (ต้องการ 9 ช่อง)`);
             }
 
+            // Mapping ข้อมูลตาม Template:
+            // 0:User, 1:Name, 2:Status, 3:Phone, 4:Email, 5:PC_Name, 6:Software, 7:Date, 8:Time
             const userId = cols[0];
             const userName = cols[1];
-            const resourceName = cols[5]; 
-            const dateStr = cols[6];      
-            const timeRange = cols[7];    
+            const pcNameStr = cols[5]; // PC
+            const softwareStr = cols[6]; // Software
+            const dateStr = cols[7];      
+            const timeRange = cols[8];    
 
             const isoDate = convertDateToISO(dateStr);
             if (!isoDate) throw new Error(`รูปแบบวันที่ผิด`);
@@ -463,8 +438,15 @@ function processCSVData(csvText) {
             if (!timeRange.includes('-')) throw new Error(`รูปแบบเวลาผิด`);
             const [startTime, endTime] = timeRange.split('-');
 
-            const pcInfo = findPcFromResourceName(resourceName);
-            if (!pcInfo) throw new Error(`ไม่พบเครื่อง "${resourceName}"`);
+            const pcInfo = findPcFromResourceName(pcNameStr);
+            if (!pcInfo) throw new Error(`ไม่พบเครื่อง "${pcNameStr}"`);
+
+            let softwareList = [];
+            if (softwareStr && softwareStr !== '-') {
+                softwareList = softwareStr.split(/[+;]/).map(s => s.trim());
+            }
+
+            const isAI = softwareList.some(s => s.toLowerCase().match(/(gpt|ai|claude|midjourney)/));
 
             const newBooking = {
                 id: 'b_imp_' + Date.now() + Math.floor(Math.random() * 10000),
@@ -476,8 +458,8 @@ function processCSVData(csvText) {
                 startTime: startTime.trim(),
                 endTime: endTime.trim(),
                 status: 'approved',
-                type: (resourceName.toLowerCase().includes('ai') || resourceName.toLowerCase().includes('chatgpt')) ? 'AI' : 'General',
-                softwareList: [] 
+                type: isAI ? 'AI' : 'General',
+                softwareList: softwareList 
             };
 
             newBookings.push(newBooking);
@@ -534,4 +516,52 @@ function findPcFromResourceName(resourceName) {
     }
 
     return pcs.find(p => cleanName.includes(p.name.toLowerCase()));
+}
+
+// ==========================================
+// 4. TEMPLATE DOWNLOAD LOGIC (Updated: 17/01/2026)
+// ==========================================
+
+function downloadCSVTemplate() {
+    // 1. กำหนดหัวตาราง (แยก PC และ Software)
+    const headers = [
+        "รหัสผู้ใช้งาน",
+        "ชื่อ-สกุล",
+        "สถานะ",
+        "เบอร์โทร",
+        "อีเมล",
+        "เครื่องที่ใช้ (PC)",      // Col 5
+        "Software / AI ที่จอง",    // Col 6
+        "วันที่ใช้บริการ",        // Col 7
+        "ช่วงเวลาใช้บริการ",      // Col 8
+        "รหัสคณะ/สำนัก"
+    ];
+
+    // 2. สร้างข้อมูลตัวอย่าง (แก้ไขวันที่เป็น 17/01/2026)
+    const sampleRows = [
+        ["66123456", "นายสมชาย ตัวอย่าง", "นักศึกษา", "081-123-4567", "-", "PC-01", "VS Code", "17/01/2026", "09:00-10:30", "EN"],
+        ["guest001", "นางสมหญิง ทดสอบ", "บุคคลภายนอก", "-", "-", "PC-05", "ChatGPT Plus + Midjourney", "17/01/2026", "13:00-15:00", "-"]
+    ];
+
+    // 3. ประกอบร่าง CSV (ใส่ BOM เพื่อรองรับภาษาไทย)
+    let csvContent = "\uFEFF" + headers.join(",") + "\n";
+
+    sampleRows.forEach(row => {
+        // Handle comma in data by quoting
+        const safeRow = row.map(cell => cell.includes(',') ? `"${cell}"` : cell);
+        csvContent += safeRow.join(",") + "\n";
+    });
+
+    // 4. สั่งดาวน์โหลด
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", "booking_template.csv"); 
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
