@@ -1,10 +1,10 @@
-/* mock-db.js (Final: Clean PC Names & One AI Per Machine) */
+/* mock-db.js (Final Version: Clean Names & One AI Per Machine) */
 
 // ==========================================
 // 1. MOCK DATA (ข้อมูลจำลอง)
 // ==========================================
 
-// ✅ 1.0 ข้อมูลรอบเวลา
+// 1.0 ข้อมูลรอบเวลา
 const DEFAULT_AI_SLOTS = [
     { id: 1, start: "09:00", end: "10:30", label: "09:00 - 10:30", active: true },
     { id: 2, start: "10:30", end: "12:00", label: "10:30 - 12:00", active: true },
@@ -18,7 +18,7 @@ const DEFAULT_BOOKINGS = [
     { 
         id: 'b1', 
         userId: '66123456', userName: 'สมชาย รักเรียน', 
-        pcId: '1', pcName: 'PC-01', // ✅ ลบวงเล็บออก
+        pcId: '1', pcName: 'PC-01', 
         date: new Date().toLocaleDateString('en-CA'), 
         startTime: '09:00', endTime: '11:00', 
         note: 'ทำโปรเจกต์จบ', 
@@ -27,7 +27,7 @@ const DEFAULT_BOOKINGS = [
     { 
         id: 'b2', 
         userId: 'External', userName: 'คุณวิชัย (Guest)', 
-        pcId: '5', pcName: 'PC-05', // ✅ ลบวงเล็บออก
+        pcId: '5', pcName: 'PC-05', 
         date: new Date().toLocaleDateString('en-CA'), 
         startTime: '13:00', endTime: '15:00', 
         note: 'ทดสอบ AI', 
@@ -48,7 +48,7 @@ const DEFAULT_SOFTWARE = [
     { id: "s9", name: "Canva", version: "Pro", type: "Software" }
 ];
 
-// 1.3 ข้อมูลเครื่องคอมพิวเตอร์ (✅ แก้ไข: ชื่อคลีนๆ ไม่มีวงเล็บ)
+// 1.3 ข้อมูลเครื่องคอมพิวเตอร์ (ชื่อ Clean ไม่มีวงเล็บ, 1 เครื่อง 1 โปรแกรม)
 const DEFAULT_PCS = [
     { 
         id: "1", name: "PC-01", status: "available", 
@@ -176,7 +176,7 @@ function generateRichMockLogs(count) {
         logDate.setHours(8 + Math.floor(Math.random() * 10)); 
         logDate.setMinutes(Math.floor(Math.random() * 60));
 
-        // ✅ Software ที่ใช้ = Software ที่มีในเครื่องนั้นๆ เท่านั้น (1 เครื่อง 1 ตัว)
+        // Software ที่ใช้ = Software ที่มีในเครื่องนั้นๆ เท่านั้น (1 เครื่อง 1 ตัว)
         const usedSoftwareLog = targetPC.installedSoftware || [];
         
         // เช็คว่า Software นั้นเป็น AI หรือไม่
@@ -202,13 +202,14 @@ function generateRichMockLogs(count) {
             userId: userId,
             userName: user.name,
             userFaculty: user.faculty,
+            // เพิ่ม userLevel และ userYear เพื่อให้ Filter หน้า Report ทำงานได้
             userLevel: user.level,
             userYear: user.year,
             userRole: user.role,
             pcId: targetPC.id,
             startTime: startTime.toISOString(),
             durationMinutes: durationMinutes,
-            usedSoftware: usedSoftwareLog, // บันทึกตามที่เครื่องมี
+            usedSoftware: usedSoftwareLog, 
             isAIUsed: isAILog,
             satisfactionScore: score,
             comment: Math.random() > 0.8 ? "ใช้งานได้ดีครับ" : ""
