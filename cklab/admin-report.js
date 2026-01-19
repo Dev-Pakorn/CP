@@ -885,6 +885,53 @@ function renderFeedbackComments(logs) {
     }).join('');
 }
 
+/* ในไฟล์ admin-report.js */
+
+function downloadLogTemplate() {
+    // 1. กำหนดหัวตารางให้ตรงกับที่ฟังก์ชัน Import (processLogCSV) ต้องการ
+    const headers = [
+        "ลำดับ", 
+        "รหัสผู้ใช้งาน", 
+        "ชื่อ-สกุล", 
+        "AI/Software ที่ใช้", 
+        "วันที่ใช้บริการ", 
+        "ช่วงเวลาใช้บริการ", 
+        "รหัสคณะ/สำนัก", 
+        "สถานะ", 
+        "PC ที่ใช้", 
+        "ระยะเวลา (นาที)", 
+        "ความพึงพอใจ (Score)"
+    ];
+
+    // 2. สร้างข้อมูลตัวอย่าง 2 แถว
+    const sampleRows = [
+        ["1", "66123456", "นายสมชาย ตัวอย่าง", "VS Code; ChatGPT", "17/01/2026", "09:00 - 10:30", "คณะวิทยาศาสตร์", "นักศึกษา", "PC-01", "90", "5"],
+        ["2", "guest001", "นางสมหญิง ทดสอบ", "-", "17/01/2026", "13:00 - 14:00", "บุคคลภายนอก", "บุคคลภายนอก", "PC-05", "60", "4"]
+    ];
+
+    // 3. ประกอบร่าง CSV (ใส่ BOM \uFEFF เพื่อให้ Excel อ่านภาษาไทยออก)
+    let csvContent = "\uFEFF" + headers.join(",") + "\n";
+
+    sampleRows.forEach(row => {
+        // ครอบเครื่องหมายคำพูดถ้าข้อมูลมีจุลภาค (,) ป้องกัน CSV เพี้ยน
+        const safeRow = row.map(cell => cell.includes(',') ? `"${cell}"` : cell);
+        csvContent += safeRow.join(",") + "\n";
+    });
+
+    // 4. สั่งดาวน์โหลดไฟล์
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", "CKLab_Log_Template.csv"); // ชื่อไฟล์ที่ได้
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
 function exportReport(mode) {
     const modeNames = { 'daily': 'รายวัน (Daily)', 'monthly': 'รายเดือน (Monthly)', 'quarterly': 'รายไตรมาส (Quarterly)', 'yearly': 'รายปี (Yearly)' };
     const selectedModeName = modeNames[mode] || mode;
@@ -906,14 +953,36 @@ function exportReport(mode) {
 }
 
 function exportAllLogs() {
-    if (!allLogs || allLogs.length === 0) {
-        alert("ไม่มีข้อมูล Log ในระบบ");
+    // ✅ 1. เปลี่ยนแหล่งข้อมูล: ใช้ filteredLogsGlobal (ข้อมูลที่ผ่านการกรองและแสดงผลอยู่) 
+    // ถ้าไม่มีข้อมูลกรอง ให้กันพลาดด้วยการใช้ allLogs หรือ array ว่าง
+    const dataToExport = (typeof filteredLogsGlobal !== 'undefined' && filteredLogsGlobal.length > 0) 
+                         ? filteredLogsGlobal 
+                         : [];
+
+    if (dataToExport.length === 0) {
+        alert("ไม่พบข้อมูลตามเงื่อนไขที่กำหนด (0 รายการ)");
         return;
     }
-    if (!confirm(`ยืนยันการ Export ข้อมูล Log ทั้งหมด (${allLogs.length} รายการ)?`)) return;
+
+    // ✅ 2. ตรวจสอบว่าตอนนี้เป็นข้อมูล "ทั้งหมด" หรือ "ข้อมูลกรอง" เพื่อปรับข้อความยืนยัน
+    // ถ้าจำนวนข้อมูลที่จะโหลด ไม่เท่ากับ ข้อมูลทั้งหมดในระบบ แสดงว่ามีการกรองอยู่
+    const isFiltered = dataToExport.length !== allLogs.length;
+    
+    const confirmMsg = isFiltered
+        ? `ยืนยันการ Export ข้อมูลตามตัวกรองปัจจุบัน (${dataToExport.length} รายการ)?`
+        : `ยืนยันการ Export ข้อมูลทั้งหมดในระบบ (${dataToExport.length} รายการ)?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    // ✅ 3. ตั้งชื่อไฟล์ให้สื่อความหมาย
     const now = new Date();
-    const fileName = `CKLab_Logs_Backup_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours()}${now.getMinutes()}`;
-    createCSVFile(allLogs, fileName);
+    // ถ้ากรองอยู่ ให้ใส่คำว่า Filtered_Report ถ้าไม่กรอง ให้ใช้ Full_Report
+    const fileTag = isFiltered ? "Filtered_Report" : "Full_Report";
+    
+    const fileName = `CKLab_${fileTag}_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours()}${now.getMinutes()}`;
+
+    // ส่งข้อมูลชุดนี้ไปสร้าง CSV
+    createCSVFile(dataToExport, fileName);
 }
 
 function generateCSV(startDateObj, endDateObj, fileNamePrefix) {

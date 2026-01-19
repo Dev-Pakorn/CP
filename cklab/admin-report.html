@@ -40,19 +40,25 @@
                     <p class="text-muted small mb-0">สรุปสถิติการใช้งานเครื่องคอมพิวเตอร์และ AI Tools</p>
                 </div>
                 <div class="d-flex gap-2">
-                    <input type="file" id="importLogFile" accept=".csv" class="d-none" onchange="handleLogImport(this)">
-                    
-                    <button onclick="document.getElementById('importLogFile').click()" class="btn btn-success shadow-sm">
-                        <i class="bi bi-file-earmark-arrow-up-fill me-1"></i> Import CSV
-                    </button>
+                    <div class="d-flex gap-2">
+                        <input type="file" id="importLogFile" accept=".csv" class="d-none" onchange="handleLogImport(this)">
+                        
+                        <button onclick="downloadLogTemplate()" class="btn btn-outline-secondary shadow-sm">
+                            <i class="bi bi-download me-1"></i> โหลดแบบฟอร์ม
+                        </button>
 
-                    <button onclick="exportAllLogs()" class="btn btn-primary shadow-sm">
-                        <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> Export All
-                    </button>
+                        <button onclick="document.getElementById('importLogFile').click()" class="btn btn-success shadow-sm">
+                            <i class="bi bi-file-earmark-arrow-up-fill me-1"></i> Import CSV
+                        </button>
 
-                    <button onclick="window.print()" class="btn btn-secondary shadow-sm">
-                        <i class="bi bi-printer-fill me-1"></i> Print
-                    </button>
+                        <button onclick="exportAllLogs()" class="btn btn-primary shadow-sm">
+                            <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> Export All
+                        </button>
+
+                        <button onclick="window.print()" class="btn btn-secondary shadow-sm">
+                            <i class="bi bi-printer-fill me-1"></i> Print
+                        </button>
+                    </div>
                 </div>
             </div>
 
