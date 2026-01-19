@@ -61,77 +61,7 @@
 
     <script src="mock-db.js"></script>
 
-    <script>
-        // --- ส่วนทำงานอัตโนมัติเมื่อเปิดหน้าเว็บ ---
-        document.addEventListener('DOMContentLoaded', () => {
-            
-            // เช็คว่าเจอ mock-db ไหม
-            if (typeof DB === 'undefined') {
-                alert("Critical Error: ไม่พบไฟล์ mock-db.js กรุณาเช็คว่าไฟล์อยู่ในโฟลเดอร์เดียวกันหรือไม่");
-                return;
-            }
+    <script src="admin-login.js"></script>
 
-            // ถ้าล็อกอินอยู่แล้ว ให้ไปหน้า Dashboard
-            const session = DB.getSession();
-            if (session && session.user && session.user.role === 'admin') {
-                window.location.href = 'admin-monitor.html';
-                return;
-            }
-
-            // ตั้งค่าลิงก์ย้อนกลับ
-            const backLink = document.getElementById('backLink');
-            if (backLink) {
-                if (session && session.pcId) {
-                    backLink.href = `index.html#${session.pcId}`;
-                    backLink.innerHTML = `<i class="bi bi-arrow-left me-1"></i>กลับไปที่เครื่อง ${session.pcId}`;
-                } else {
-                    backLink.href = 'index.html';
-                }
-            }
-        });
-
-        // --- ฟังก์ชัน Login (เรียกเมื่อกดปุ่ม) ---
-        function doAdminLogin() {
-            // ดึงค่าจากช่องกรอก
-            const userEl = document.getElementById('admUser');
-            const passEl = document.getElementById('admPass');
-
-            if (!userEl || !passEl) {
-                alert("Error: ไม่พบช่องกรอกข้อมูล");
-                return;
-            }
-
-            const u = userEl.value.trim();
-            const p = passEl.value.trim();
-
-            console.log("Checking Login:", u, p); // ดูใน Console F12 ได้
-
-            // ตรวจสอบรหัส (admin / 1234)
-            if (u === 'admin' && p === '1234') {
-                
-                // บันทึก Session
-                DB.setSession({ 
-                    user: { name: 'Administrator', role: 'admin' } 
-                });
-
-                // ไปหน้า Dashboard
-                alert('✅ เข้าสู่ระบบสำเร็จ');
-                window.location.href = 'admin-monitor.html';
-
-            } else {
-                alert('❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง\n(Username: admin, Password: 1234)');
-                passEl.value = ''; // ล้างรหัสผ่าน
-                passEl.focus();
-            }
-        }
-
-        // รองรับการกด Enter
-        document.getElementById('loginForm').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                doAdminLogin();
-            }
-        });
-    </script>
 </body>
 </html>
