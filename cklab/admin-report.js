@@ -346,7 +346,7 @@ function applyFilters() {
 
         const role = (log.userRole || '').toLowerCase();
         
-        // ✅ [MERGED LOGIC] กรองนักศึกษาแบบแยก ป.ตรี/ชั้นปี
+        // กรองตาม User Type
         if (userMode === 'student') {
             if (role !== 'student') return false;
             
@@ -362,7 +362,6 @@ function applyFilters() {
 
             if (filterLevel !== 'all') {
                 if (userLevel !== filterLevel) return false;
-                // ถ้าเป็น ป.ตรี และมีการเลือกชั้นปีเจาะจง
                 if (filterLevel === 'ปริญญาตรี' && filterYear !== 'all') {
                     if (userYear !== filterYear) return false;
                 }
@@ -383,17 +382,24 @@ function applyFilters() {
         return true;
     });
 
-    // 4. เตรียมข้อมูลกราฟ
+    // 4. เตรียมข้อมูลกราฟ (แก้ไขจุดนี้ครับ ✅)
     let distributionData = {};
     const timeChartData = {};
 
     filteredLogs.forEach(l => {
-        let distLabel = l.userFaculty || 'ไม่ระบุ';
+        let distLabel = (l.userFaculty || 'ไม่ระบุ').trim();
+
+        // ✅ FIX: รวมกลุ่มคำที่ความหมายเหมือนกัน ให้เป็น "บุคคลภายนอก"
+        if (distLabel === 'บุคคลทั่วไป' || distLabel === 'Guest' || distLabel === '-') {
+            distLabel = 'บุคคลภายนอก';
+        }
+
         if (userMode === 'all') {
             if (l.userRole === 'student') distLabel = "นักศึกษา";
             else if (l.userRole === 'staff' || l.userRole === 'admin') distLabel = "บุคลากร";
             else distLabel = "บุคคลภายนอก";
         }
+        
         distributionData[distLabel] = (distributionData[distLabel] || 0) + 1;
 
         const dateObj = new Date(l.startTime || l.timestamp);

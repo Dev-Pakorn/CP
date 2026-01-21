@@ -1,4 +1,4 @@
-/* mock-db.js (Final Version: Clean Names & One AI Per Machine) */
+/* mock-db.js (Final Fix: Consistent External User Data) */
 
 // ==========================================
 // 1. MOCK DATA (ข้อมูลจำลอง)
@@ -26,7 +26,8 @@ const DEFAULT_BOOKINGS = [
     },
     { 
         id: 'b2', 
-        userId: 'External', userName: 'คุณวิชัย (Guest)', 
+        // ✅ แก้ไข: ใช้ ID และชื่อ ให้ตรงกับ MOCK_REG_DB
+        userId: '67200000', userName: 'ผู้มาเยือน', 
         pcId: '5', pcName: 'PC-05', 
         date: new Date().toLocaleDateString('en-CA'), 
         startTime: '13:00', endTime: '15:00', 
@@ -48,7 +49,7 @@ const DEFAULT_SOFTWARE = [
     { id: "s9", name: "Canva", version: "Pro", type: "Software" }
 ];
 
-// 1.3 ข้อมูลเครื่องคอมพิวเตอร์ (ชื่อ Clean ไม่มีวงเล็บ, 1 เครื่อง 1 โปรแกรม)
+// 1.3 ข้อมูลเครื่องคอมพิวเตอร์
 const DEFAULT_PCS = [
     { 
         id: "1", name: "PC-01", status: "available", 
@@ -111,7 +112,10 @@ const MOCK_REG_DB = {
     "66112233": { prefix: "นางสาว", name: "มานี มีปัญญา", faculty: "คณะวิทยาศาสตร์", department: "วิทยาการคอมพิวเตอร์", year: "2", level: "ปริญญาตรี", role: "student" },
     "66100000": { prefix: "นาย", name: "เอกภพ มั่นคง", faculty: "คณะศิลปศาสตร์", department: "ภาษาไทย", year: "4", level: "ปริญญาตรี", role: "student" },
     "66100001": { prefix: "นางสาว", name: "ดวงดาว ไกลโพ้น", faculty: "คณะศึกษาศาสตร์", department: "คณิตศาสตร์", year: "1", level: "ปริญญาตรี", role: "student" },
-    "67200000": { prefix: "นาย", name: "ผู้มาเยือน", faculty: "บุคคลภายนอก", department: "-", year: "-", level: "บุคคลทั่วไป", role: "external" },
+    
+    // ✅ แก้ไข: เปลี่ยน level จาก "บุคคลทั่วไป" เป็น "บุคคลภายนอก" ให้เหมือน faculty เพื่อแก้ปัญหากราฟแยกแท่ง
+    "67200000": { prefix: "นาย", name: "ผู้มาเยือน", faculty: "บุคคลภายนอก", department: "-", year: "-", level: "บุคคลภายนอก", role: "external" },
+    
     "ubu_staff": { prefix: "ดร.", name: "ใจดี มีวิชา", faculty: "สำนักคอมพิวเตอร์และเครือข่าย", department: "-", year: "-", level: "บุคลากร", role: "staff" },
     "staff_karnklang": { prefix: "นาย", name: "บุคลากร กองกลาง", faculty: "กองกลาง", year: "-", level: "บุคลากร", role: "staff" },
     "staff_personel": { prefix: "นาง", name: "เจ้าหน้าที่ กองการเจ้าหน้าที่", faculty: "กองการเจ้าหน้าที่", year: "-", level: "บุคลากร", role: "staff" },
