@@ -1,4 +1,4 @@
-/* admin-booking.js (Final: Validation + Smart Import + Download Template 17/01/2026) */
+/* admin-booking.js (Final: Type Filter & User Lookup) */
 
 let bookingModal;
 
@@ -17,9 +17,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Init Options
     initFormOptions();
 
-    // ✅ เพิ่ม Event Listener: เมื่อเปลี่ยน "วันที่" หรือ "เวลา" ให้เช็คสถานะเครื่องใหม่ทันที
+    // ✅ Event Listeners: อัปเดต PC List เมื่อเปลี่ยนเงื่อนไข
     document.getElementById('bkDate').addEventListener('change', filterPCList);
     document.getElementById('bkTimeSlot').addEventListener('change', filterPCList);
+    document.getElementById('bkTypeSelect').addEventListener('change', () => {
+        toggleSoftwareList(); // โชว์/ซ่อน กล่องเลือกโปรแกรม
+        filterPCList();       // กรองรายการ PC ใหม่
+    });
+
+    // ✅ Event Listener: ค้นหาชื่อผู้จองอัตโนมัติ
+    const userInput = document.getElementById('bkUser');
+    if (userInput) {
+        // เพิ่มพื้นที่แสดงผลชื่อ (ถ้ายังไม่มี)
+        if (!document.getElementById('userLookupHint')) {
+            const hint = document.createElement('div');
+            hint.id = 'userLookupHint';
+            hint.className = 'form-text mt-1';
+            userInput.parentNode.appendChild(hint);
+        }
+        userInput.addEventListener('change', checkUserLookup);
+    }
 });
 
 // ==========================================
@@ -42,60 +59,103 @@ function initFormOptions() {
         }
     }
     
-    // โหลด PC ครั้งแรก (ใช้ค่า Default วัน/เวลา)
+    // โหลด PC ครั้งแรก
     filterPCList();
 }
 
 // ==========================================
-// 🔍 FILTER & AVAILABILITY LOGIC
+// 🔍 FEATURE: USER LOOKUP (ค้นหาชื่อ)
+// ==========================================
+function checkUserLookup() {
+    const input = document.getElementById('bkUser');
+    const hint = document.getElementById('userLookupHint');
+    const val = input.value.trim();
+
+    if (!val) {
+        hint.innerHTML = '';
+        return;
+    }
+
+    // เรียกใช้ API จำลองจาก mock-db.js
+    const user = DB.checkRegAPI(val);
+
+    if (user) {
+        // เจอข้อมูล
+        hint.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> พบข้อมูล: ${user.name} (${user.role === 'student' ? 'นักศึกษา' : 'บุคลากร'})</span>`;
+    } else {
+        // ไม่เจอ
+        hint.innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-circle"></i> ไม่พบข้อมูลในระบบ (จะเป็น Guest)</span>`;
+    }
+}
+
+// ==========================================
+// 🔍 FEATURE: FILTER PC (กรองเครื่องตามประเภท)
 // ==========================================
 function filterPCList() {
     const pcSelect = document.getElementById('bkPcSelect');
     if (!pcSelect) return;
 
-    // 1. ดึงค่า Filter ต่างๆ
+    // 1. ดึงค่าจากฟอร์ม
     const swName = document.getElementById('bkSoftwareFilter').value.toLowerCase();
     const selDate = document.getElementById('bkDate').value;
     const selTimeSlot = document.getElementById('bkTimeSlot').value; 
+    const selType = document.getElementById('bkTypeSelect').value; // 'General' หรือ 'AI'
 
-    // ถ้ายังไม่เลือกวันเวลา
     if (!selDate || !selTimeSlot) {
         pcSelect.innerHTML = '<option value="">-- กรุณาเลือกวันและเวลาก่อน --</option>';
         return;
     }
 
-    // แกะเวลา Start/End ที่เลือก
     const [selStart, selEnd] = selTimeSlot.split('-');
 
-    // ดึงข้อมูล
+    // 2. เตรียมข้อมูล
     const pcs = DB.getPCs();
     const bookings = DB.getBookings();
-    
+    const softwareLib = DB.getSoftwareLib(); // เพื่อเช็คว่าโปรแกรมไหนเป็น AI
+
+    // ดึงรายชื่อโปรแกรมที่เป็น AI ทั้งหมดเก็บไว้เช็ค
+    const aiSoftwareNames = softwareLib.filter(s => s.type === 'AI').map(s => s.name.toLowerCase());
+
     // เรียงชื่อเครื่อง
     pcs.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
 
     const currentValue = pcSelect.value;
-
     pcSelect.innerHTML = '<option value="">-- เลือกเครื่อง --</option>';
     let count = 0;
 
     pcs.forEach(pc => {
-        // --- A. กรองด้วย Software ---
-        let hasSoftware = true;
-        if (swName !== "") {
-            hasSoftware = pc.installedSoftware && pc.installedSoftware.some(s => s.toLowerCase().includes(swName));
+        // --- A. กรองด้วย Type (General vs AI) ---
+        const installed = pc.installedSoftware || [];
+        
+        // เช็คว่าเครื่องนี้มี AI หรือไม่
+        const hasAI = installed.some(instSw => {
+            const cleanName = instSw.split('(')[0].trim().toLowerCase();
+            return aiSoftwareNames.includes(cleanName);
+        });
+
+        if (selType === 'General') {
+            // ถ้าเลือก General: เครื่องต้อง *ไม่มี* AI
+            if (hasAI) return;
+        } else if (selType === 'AI') {
+            // ถ้าเลือก AI: เครื่องต้อง *มี* AI
+            if (!hasAI) return;
         }
 
-        if (!hasSoftware) return;
+        // --- B. กรองด้วย Software Filter (ถ้ามีการเลือก) ---
+        let hasSelectedSoftware = true;
+        if (swName !== "") {
+            hasSelectedSoftware = installed.some(s => s.toLowerCase().includes(swName));
+        }
+        if (!hasSelectedSoftware) return;
 
-        // --- B. เช็คสถานะ "ปิดปรับปรุง" ---
+        // --- C. เช็คสถานะ "ปิดปรับปรุง" ---
         if (pc.status === 'maintenance') {
             pcSelect.innerHTML += `<option value="${pc.id}" disabled style="color: #6c757d;">🔴 ${pc.name} (แจ้งซ่อม/ปิดปรับปรุง)</option>`;
             count++;
             return;
         }
 
-        // --- C. เช็คคิวว่าง (Availability Check) ---
+        // --- D. เช็คคิวว่าง (Availability Check) ---
         const isConflict = bookings.some(b => {
             if (String(b.pcId) !== String(pc.id)) return false;
             if (b.date !== selDate) return false;
@@ -105,7 +165,7 @@ function filterPCList() {
             return (selStart < b.endTime && selEnd > b.startTime);
         });
 
-        // --- D. สร้าง Option ---
+        // --- E. สร้าง Option ---
         if (isConflict) {
             pcSelect.innerHTML += `<option value="${pc.id}" disabled style="color: #dc3545;">❌ ${pc.name} (ไม่ว่าง - จองแล้ว)</option>`;
         } else {
@@ -116,7 +176,7 @@ function filterPCList() {
     });
 
     if (count === 0) {
-        pcSelect.innerHTML = `<option value="" disabled>❌ ไม่พบเครื่องที่มีโปรแกรมนี้</option>`;
+        pcSelect.innerHTML = `<option value="" disabled>❌ ไม่พบเครื่องประเภท ${selType} ที่ว่าง</option>`;
     }
     
     updateSoftwareList();
@@ -276,16 +336,19 @@ function openBookingModal() {
 
     if(document.getElementById('bkPcSelect')) document.getElementById('bkPcSelect').value = '';
     if(document.getElementById('bkTimeSlot')) document.getElementById('bkTimeSlot').value = '09:00-10:30';
-    if(document.getElementById('bkUser')) document.getElementById('bkUser').value = '';
+    
+    // Clear User Input & Hint
+    const userInput = document.getElementById('bkUser');
+    if(userInput) userInput.value = '';
+    const hint = document.getElementById('userLookupHint');
+    if(hint) hint.innerHTML = '';
+
     if(document.getElementById('bkTypeSelect')) document.getElementById('bkTypeSelect').value = 'General';
     if(document.getElementById('bkSoftwareFilter')) document.getElementById('bkSoftwareFilter').value = '';
     
     filterPCList(); 
     toggleSoftwareList(); 
     
-    const hint = document.getElementById('pcSoftwareHint');
-    if(hint) hint.innerText = '';
-
     if(bookingModal) bookingModal.show();
 }
 
@@ -293,8 +356,10 @@ function saveBooking() {
     const pcId = document.getElementById('bkPcSelect').value;
     const date = document.getElementById('bkDate').value;
     const timeSlotStr = document.getElementById('bkTimeSlot').value; 
-    const userId = document.getElementById('bkUser').value.trim();
+    const userInput = document.getElementById('bkUser');
     const type = document.getElementById('bkTypeSelect').value;
+
+    const userId = userInput.value.trim();
 
     if (!pcId || !date || !timeSlotStr || !userId) {
         alert("กรุณากรอกข้อมูลให้ครบถ้วน");
@@ -340,10 +405,14 @@ function saveBooking() {
         selectedSoftware.push(cb.value);
     });
 
+    // Lookup User Name (if exists in mock DB)
+    const userObj = DB.checkRegAPI(userId);
+    const userName = userObj ? userObj.name : userId; // ถ้าไม่เจอ ใช้ userId เป็นชื่อแทน
+
     const newBooking = {
         id: 'b_' + Date.now(),
         userId: userId,
-        userName: userId, 
+        userName: userName, // Save real name
         pcId: pcId,
         pcName: pc ? pc.name : 'Unknown',
         date: date,
@@ -519,11 +588,11 @@ function findPcFromResourceName(resourceName) {
 }
 
 // ==========================================
-// 4. TEMPLATE DOWNLOAD LOGIC (Updated: 17/01/2026)
+// 4. TEMPLATE DOWNLOAD LOGIC
 // ==========================================
 
 function downloadCSVTemplate() {
-    // 1. กำหนดหัวตาราง (แยก PC และ Software)
+    // 1. กำหนดหัวตาราง
     const headers = [
         "รหัสผู้ใช้งาน",
         "ชื่อ-สกุล",
@@ -547,7 +616,6 @@ function downloadCSVTemplate() {
     let csvContent = "\uFEFF" + headers.join(",") + "\n";
 
     sampleRows.forEach(row => {
-        // Handle comma in data by quoting
         const safeRow = row.map(cell => cell.includes(',') ? `"${cell}"` : cell);
         csvContent += safeRow.join(",") + "\n";
     });
