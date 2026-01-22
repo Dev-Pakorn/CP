@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Render Table
     renderBookings();
-    
+
     // 4. Init Options
     initFormOptions();
 
@@ -58,7 +58,7 @@ function initFormOptions() {
             swFilter.disabled = true;
         }
     }
-    
+
     // โหลด PC ครั้งแรก
     filterPCList();
 }
@@ -98,7 +98,7 @@ function filterPCList() {
     // 1. ดึงค่าจากฟอร์ม
     const swName = document.getElementById('bkSoftwareFilter').value.toLowerCase();
     const selDate = document.getElementById('bkDate').value;
-    const selTimeSlot = document.getElementById('bkTimeSlot').value; 
+    const selTimeSlot = document.getElementById('bkTimeSlot').value;
     const selType = document.getElementById('bkTypeSelect').value; // 'General' หรือ 'AI'
 
     if (!selDate || !selTimeSlot) {
@@ -117,7 +117,7 @@ function filterPCList() {
     const aiSoftwareNames = softwareLib.filter(s => s.type === 'AI').map(s => s.name.toLowerCase());
 
     // เรียงชื่อเครื่อง
-    pcs.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+    pcs.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
     const currentValue = pcSelect.value;
     pcSelect.innerHTML = '<option value="">-- เลือกเครื่อง --</option>';
@@ -126,7 +126,7 @@ function filterPCList() {
     pcs.forEach(pc => {
         // --- A. กรองด้วย Type (General vs AI) ---
         const installed = pc.installedSoftware || [];
-        
+
         // เช็คว่าเครื่องนี้มี AI หรือไม่
         const hasAI = installed.some(instSw => {
             const cleanName = instSw.split('(')[0].trim().toLowerCase();
@@ -178,16 +178,16 @@ function filterPCList() {
     if (count === 0) {
         pcSelect.innerHTML = `<option value="" disabled>❌ ไม่พบเครื่องประเภท ${selType} ที่ว่าง</option>`;
     }
-    
+
     updateSoftwareList();
 }
 
 function updateSoftwareList() {
     const pcId = document.getElementById('bkPcSelect').value;
     const container = document.getElementById('aiCheckboxList');
-    
+
     const hint = document.getElementById('pcSoftwareHint');
-    if(hint) hint.innerText = "";
+    if (hint) hint.innerText = "";
 
     if (!container) return;
 
@@ -221,7 +221,7 @@ function updateSoftwareList() {
 // ==========================================
 function renderBookings() {
     const tbody = document.getElementById('bookingTableBody');
-    if(!tbody) return;
+    if (!tbody) return;
 
     let bookings = DB.getBookings();
     const filterDate = document.getElementById('bookingDateFilter').value;
@@ -248,13 +248,12 @@ function renderBookings() {
     filtered.forEach(b => {
         let badgeClass = '', statusText = '', actionBtns = '';
 
-        switch(b.status) {
-            case 'pending': 
+        switch (b.status) {
+            case 'pending':
             case 'approved':
-                badgeClass = 'bg-warning text-dark border border-warning'; 
+                badgeClass = 'bg-warning text-dark border border-warning';
                 statusText = '🟡 จองแล้ว (Booked)';
                 actionBtns = `
-                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="updateStatus('${b.id}', 'no_show')" title="แจ้ง No Show"><i class="bi bi-person-x"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="updateStatus('${b.id}', 'rejected')" title="ยกเลิก"><i class="bi bi-trash"></i></button>
                 `;
                 break;
@@ -293,9 +292,9 @@ function renderBookings() {
 }
 
 function formatDate(dateStr) {
-    if(!dateStr) return "-";
+    if (!dateStr) return "-";
     const parts = dateStr.split('-');
-    if(parts.length !== 3) return dateStr;
+    if (parts.length !== 3) return dateStr;
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
@@ -308,7 +307,7 @@ function updateStatus(id, newStatus) {
         const booking = bookings[index];
         booking.status = newStatus;
         DB.saveBookings(bookings);
-        
+
         if (newStatus === 'no_show' || newStatus === 'rejected') {
             const pcs = DB.getPCs();
             const pc = pcs.find(p => String(p.id) === String(booking.pcId));
@@ -326,36 +325,36 @@ function updateStatus(id, newStatus) {
 
 function openBookingModal() {
     const today = new Date().toISOString().split('T')[0];
-    
+
     const dateInput = document.getElementById('bkDate');
-    if(dateInput) {
+    if (dateInput) {
         dateInput.value = today;
         dateInput.removeAttribute('min');
         dateInput.removeAttribute('max');
     }
 
-    if(document.getElementById('bkPcSelect')) document.getElementById('bkPcSelect').value = '';
-    if(document.getElementById('bkTimeSlot')) document.getElementById('bkTimeSlot').value = '09:00-10:30';
-    
+    if (document.getElementById('bkPcSelect')) document.getElementById('bkPcSelect').value = '';
+    if (document.getElementById('bkTimeSlot')) document.getElementById('bkTimeSlot').value = '09:00-10:30';
+
     // Clear User Input & Hint
     const userInput = document.getElementById('bkUser');
-    if(userInput) userInput.value = '';
+    if (userInput) userInput.value = '';
     const hint = document.getElementById('userLookupHint');
-    if(hint) hint.innerHTML = '';
+    if (hint) hint.innerHTML = '';
 
-    if(document.getElementById('bkTypeSelect')) document.getElementById('bkTypeSelect').value = 'General';
-    if(document.getElementById('bkSoftwareFilter')) document.getElementById('bkSoftwareFilter').value = '';
-    
-    filterPCList(); 
-    toggleSoftwareList(); 
-    
-    if(bookingModal) bookingModal.show();
+    if (document.getElementById('bkTypeSelect')) document.getElementById('bkTypeSelect').value = 'General';
+    if (document.getElementById('bkSoftwareFilter')) document.getElementById('bkSoftwareFilter').value = '';
+
+    filterPCList();
+    toggleSoftwareList();
+
+    if (bookingModal) bookingModal.show();
 }
 
 function saveBooking() {
     const pcId = document.getElementById('bkPcSelect').value;
     const date = document.getElementById('bkDate').value;
-    const timeSlotStr = document.getElementById('bkTimeSlot').value; 
+    const timeSlotStr = document.getElementById('bkTimeSlot').value;
     const userInput = document.getElementById('bkUser');
     const type = document.getElementById('bkTypeSelect').value;
 
@@ -368,9 +367,9 @@ function saveBooking() {
 
     // Validation
     const parts = date.split('-');
-    const selDate = new Date(parts[0], parts[1] - 1, parts[2]); 
-    const today = new Date(); 
-    today.setHours(0,0,0,0); 
+    const selDate = new Date(parts[0], parts[1] - 1, parts[2]);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     const diffTime = selDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -384,9 +383,9 @@ function saveBooking() {
 
     // Conflict Check
     const bookings = DB.getBookings();
-    const isDup = bookings.some(b => 
-        b.date === date && 
-        String(b.pcId) === String(pcId) && 
+    const isDup = bookings.some(b =>
+        b.date === date &&
+        String(b.pcId) === String(pcId) &&
         ['approved', 'pending', 'in_use'].includes(b.status) &&
         (start < b.endTime && end > b.startTime)
     );
@@ -395,7 +394,7 @@ function saveBooking() {
         alert("⚠️ เครื่องนี้ถูกจองไปแล้วในช่วงเวลาดังกล่าว กรุณาเลือกเครื่องอื่น");
         return;
     }
-    
+
     const pcs = DB.getPCs();
     const pc = pcs.find(p => String(p.id) === String(pcId));
 
@@ -420,19 +419,19 @@ function saveBooking() {
         endTime: end,
         status: 'approved',
         type: type,
-        softwareList: selectedSoftware 
+        softwareList: selectedSoftware
     };
 
     bookings.push(newBooking);
     DB.saveBookings(bookings);
-    
+
     alert("บันทึกการจองเรียบร้อย");
-    if(bookingModal) bookingModal.hide();
+    if (bookingModal) bookingModal.hide();
     renderBookings();
 }
 
 function deleteBooking(id) {
-    if(!confirm("ยืนยันลบข้อมูลการจองนี้?")) return;
+    if (!confirm("ยืนยันลบข้อมูลการจองนี้?")) return;
     let bookings = DB.getBookings();
     bookings = bookings.filter(b => b.id !== id);
     DB.saveBookings(bookings);
@@ -452,9 +451,9 @@ function handleImport(input) {
     const file = input.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) { processCSVData(e.target.result); };
+    reader.onload = function (e) { processCSVData(e.target.result); };
     reader.readAsText(file);
-    input.value = ''; 
+    input.value = '';
 }
 
 // ==========================================
@@ -498,8 +497,8 @@ function processCSVData(csvText) {
             const userName = cols[1];
             const pcNameStr = cols[5]; // PC
             const softwareStr = cols[6]; // Software
-            const dateStr = cols[7];      
-            const timeRange = cols[8];    
+            const dateStr = cols[7];
+            const timeRange = cols[8];
 
             const isoDate = convertDateToISO(dateStr);
             if (!isoDate) throw new Error(`รูปแบบวันที่ผิด`);
@@ -528,7 +527,7 @@ function processCSVData(csvText) {
                 endTime: endTime.trim(),
                 status: 'approved',
                 type: isAI ? 'AI' : 'General',
-                softwareList: softwareList 
+                softwareList: softwareList
             };
 
             newBookings.push(newBooking);
@@ -546,7 +545,7 @@ function processCSVData(csvText) {
         const updatedBookings = [...bookings, ...newBookings];
         DB.saveBookings(updatedBookings);
         renderBookings();
-        
+
         let msg = `✅ นำเข้าสำเร็จ: ${successCount} รายการ`;
         if (failCount > 0) {
             msg += `\n⚠️ ล้มเหลว: ${failCount} รายการ\n\nตัวอย่างข้อผิดพลาด:\n${errorLog.join('\n')}`;
@@ -561,13 +560,13 @@ function convertDateToISO(dateStr) {
     if (!dateStr) return null;
     const parts = dateStr.split('/');
     if (parts.length !== 3) return null;
-    
+
     let day = parseInt(parts[0]);
     let month = parseInt(parts[1]);
     let year = parseInt(parts[2]);
 
-    if (year > 2400) year -= 543; 
-    
+    if (year > 2400) year -= 543;
+
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
@@ -575,9 +574,9 @@ function findPcFromResourceName(resourceName) {
     const pcs = DB.getPCs();
     const cleanName = resourceName.toLowerCase().trim();
 
-    const matches = cleanName.match(/(\d+)/); 
+    const matches = cleanName.match(/(\d+)/);
     if (matches) {
-        const number = parseInt(matches[0]).toString(); 
+        const number = parseInt(matches[0]).toString();
         let found = pcs.find(p => String(p.id) === number);
         if (found) return found;
         found = pcs.find(p => p.name.includes(number.padStart(2, '0')));
@@ -624,11 +623,11 @@ function downloadCSVTemplate() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    
+
     link.setAttribute("href", url);
-    link.setAttribute("download", "booking_template.csv"); 
+    link.setAttribute("download", "booking_template.csv");
     link.style.visibility = 'hidden';
-    
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
