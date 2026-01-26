@@ -42,13 +42,17 @@
                 </ul>
 
                 <div id="formInternal" class="animate-fade">
-                    <label class="form-label small fw-bold text-muted ps-2">รหัส UBU WiFi / รหัสนักศึกษา</label>
-                    <div class="input-group mb-3 shadow-sm">
+                    <label class="form-label small fw-bold text-muted ps-2">UBU Account / รหัสนักศึกษา</label>
+                    <div class="input-group mb-2 shadow-sm">
                         <span class="input-group-text bg-white border-end-0 ps-3"><i class="bi bi-person-badge text-primary"></i></span>
-                        <input type="text" class="form-control form-control-lg border-start-0 ps-0" id="ubuUser" placeholder="เช่น 66123456">
+                        <input type="text" class="form-control form-control-lg border-start-0 ps-0" id="ubuUser" placeholder="เช่น 66123456" autofocus>
                         <button class="btn btn-primary px-4 fw-bold" type="button" onclick="verifyUBUUser()">
                             ตรวจสอบ
                         </button>
+                    </div>
+                    
+                    <div id="loginError" class="text-danger fw-bold small d-none animate-fade mb-3 ps-2">
+                        <i class="bi bi-exclamation-circle-fill me-1"></i> ไม่พบข้อมูลในระบบ หรือรหัสผิดพลาด
                     </div>
                     
                     <div id="internalVerifyCard" class="card border-0 shadow-sm p-3 d-none bg-white"> 
@@ -173,5 +177,22 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="mock-db.js"></script>
     <script src="auth.js"></script>
+
+    <script>
+        let idleTime = 0;
+        function resetTimer() { idleTime = 0; }
+        
+        // จับ Event การเคลื่อนไหว
+        document.onmousemove = resetTimer;
+        document.onkeypress = resetTimer;
+        document.ontouchstart = resetTimer;
+
+        setInterval(function() {
+            idleTime++;
+            if (idleTime >= 60) { // 60 วินาที
+                window.location.reload();
+            }
+        }, 1000);
+    </script>
 </body>
 </html>

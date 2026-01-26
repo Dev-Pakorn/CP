@@ -1,4 +1,4 @@
-/* auth.js - Kiosk Logic (Final: Unlimited + Fix Year/Level Data) */
+/* auth.js - Kiosk Logic (Final: Unlimited + Fix Year/Level Data + UI Sync + Code Name) */
 
 function getSystemPCId() {
     if (window.location.hash) {
@@ -47,8 +47,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const extInputs = document.querySelectorAll('#formExternal input');
     if(extInputs.length > 0) extInputs.forEach(input => input.addEventListener('input', validateForm));
     
+    // Smart Enter Logic
     const ubuInput = document.getElementById('ubuUser');
-    if(ubuInput) ubuInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') verifyUBUUser(); });
+    if(ubuInput) {
+        ubuInput.addEventListener('keydown', (e) => { 
+            if (e.key === 'Enter') {
+                if (!verifiedUserData) {
+                    verifyUBUUser(); // ยังไม่ผ่าน -> ตรวจสอบ
+                } else {
+                    confirmCheckIn(); // ผ่านแล้ว -> เข้าใช้งานเลย
+                }
+            } 
+        });
+    }
 });
 
 // ✅ Monitor Lab Status (Sync with Admin Config)
@@ -110,13 +121,23 @@ function renderNoPcIdError() {
 }
 
 function checkMachineStatus() {
+    // 1. ดึงข้อมูล PC ก่อนเพื่อเช็ค Code Name
+    const pc = DB.getPCs().find(p => String(p.id) === String(FIXED_PC_ID));
+
+    // 2. อัปเดตการแสดงผลชื่อเครื่อง (เพิ่ม Code Name logic)
     const displayId = document.getElementById('fixedPcIdDisplay');
     if(displayId) {
-        displayId.innerText = `PC-${FIXED_PC_ID.toString().padStart(2, '0')}`;
+        let idText = `PC-${FIXED_PC_ID.toString().padStart(2, '0')}`;
+        
+        if (pc && pc.codeName) {
+            // ✅ แสดง Code Name เช่น: PC-01 | Alpha
+            displayId.innerHTML = `${idText} <span class="text-muted fw-normal mx-1">|</span> ${pc.codeName}`;
+        } else {
+            displayId.innerText = idText;
+        }
         displayId.className = 'fw-bold text-primary';
     }
 
-    const pc = DB.getPCs().find(p => String(p.id) === String(FIXED_PC_ID));
     if (!pc) return; 
     
     // Status Indicator
@@ -170,13 +191,17 @@ function switchTab(type) {
     const btnInt = document.getElementById('tab-internal');
     const btnExt = document.getElementById('tab-external');
     
+    // Reset Internal Form
+    document.getElementById('ubuUser').value = '';
+    document.getElementById('internalVerifyCard').classList.add('d-none');
+    const errEl = document.getElementById('loginError');
+    if(errEl) errEl.classList.add('d-none');
+
     if(type === 'internal') {
         if(btnInt) btnInt.classList.add('active'); 
         if(btnExt) btnExt.classList.remove('active');
         document.getElementById('formInternal').classList.remove('d-none');
         document.getElementById('formExternal').classList.add('d-none');
-        document.getElementById('ubuUser').value = '';
-        document.getElementById('internalVerifyCard').classList.add('d-none');
     } else {
         if(btnExt) btnExt.classList.add('active'); 
         if(btnInt) btnInt.classList.remove('active');
@@ -193,9 +218,10 @@ function verifyUBUUser() {
     
     const user = DB.checkRegAPI(id);
     const verifyCard = document.getElementById('internalVerifyCard');
+    const errEl = document.getElementById('loginError');
     
     if (user) {
-        // ✅ แก้ไข: เก็บข้อมูล Level และ Year เพิ่มเติม
+        // ✅ เก็บข้อมูล Level และ Year เพิ่มเติม
         verifiedUserData = { 
             id: id, 
             name: user.prefix + user.name, 
@@ -210,9 +236,19 @@ function verifyUBUUser() {
         if(roleEl) roleEl.innerText = verifiedUserData.role.toUpperCase();
         
         verifyCard.classList.remove('d-none');
+        if(errEl) errEl.classList.add('d-none'); // ซ่อน Error
+
         validateForm();
     } else {
-        alert("❌ ไม่พบข้อมูลในระบบ");
+        // ใช้ Inline Error แทน Alert เพื่อความสวยงาม
+        if(errEl) {
+            errEl.classList.remove('d-none');
+            input.classList.add('is-invalid');
+            setTimeout(() => input.classList.remove('is-invalid'), 2000);
+        } else {
+            alert("❌ ไม่พบข้อมูลในระบบ");
+        }
+        
         verifyCard.classList.add('d-none');
         verifiedUserData = null;
         input.value = ''; input.focus(); validateForm();

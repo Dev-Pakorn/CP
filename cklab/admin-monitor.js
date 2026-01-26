@@ -1,4 +1,4 @@
-/* admin-monitor.js (Final: Smart Reserved Tab + Complete Timeline) */
+/* admin-monitor.js (Final: Smart Reserved Tab + Complete Timeline + Show AI Name in Modals) */
 
 let checkInModal, manageActiveModal;
 let currentTab = 'internal';
@@ -337,6 +337,9 @@ function renderMonitor() {
             usageTimeBadge = `<div class="mb-1" style="height: 21px;"></div>`; 
         }
 
+        // ✅✅✅ แก้ไขส่วนแสดงผล Card: เพิ่ม Code Name (เช่น | Alpha) ✅✅✅
+        const codeNameHtml = pc.codeName ? ` <small class="text-muted fw-normal" style="font-size: 0.8rem;">| ${pc.codeName}</small>` : '';
+
         grid.innerHTML += `
             <div class="col-6 col-md-4 col-lg-3">
                 <div class="card h-100 shadow-sm ${cardBorder} position-relative pc-card-hover" 
@@ -346,7 +349,7 @@ function renderMonitor() {
                             '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-gpu-card text-primary" title="High Performance"></i></div>' : ''}
                         
                         <i class="bi ${iconClass} display-6 ${statusClass} mb-2"></i>
-                        <h5 class="fw-bold mb-0 text-dark">${pc.name}</h5>
+                        <h5 class="fw-bold mb-0 text-dark">${pc.name}${codeNameHtml}</h5>
                         <div class="badge bg-light text-dark border mb-1 align-self-center">${label}</div>
                         
                         ${usageTimeBadge}
@@ -407,7 +410,9 @@ function handlePcClick(pcId) {
 
 function openManageActiveModal(pc) {
     document.getElementById('managePcId').value = pc.id;
-    document.getElementById('managePcName').innerText = pc.name;
+    // ✅✅✅ แก้ไข 2: ดึงชื่อ AI (Code Name) มาแสดงในหัวข้อ Modal จัดการ (Force Check-out)
+    const codeNameStr = pc.codeName ? ` | ${pc.codeName}` : '';
+    document.getElementById('managePcName').innerText = `${pc.name}${codeNameStr}`;
     document.getElementById('manageUserName').innerText = pc.currentUser || 'Unknown';
     if(manageActiveModal) manageActiveModal.show();
 }
@@ -531,7 +536,10 @@ function checkAndSwitchBookingQueue() {
 
 function openCheckInModal(pc) {
     document.getElementById('checkInPcId').value = pc.id;
-    document.getElementById('modalPcName').innerText = `Station: ${pc.name}`;
+    // ✅✅✅ แก้ไข 1: ดึงชื่อ AI (Code Name) มาแสดงในหัวข้อ Modal เช็คอิน
+    const codeNameStr = pc.codeName ? ` | ${pc.codeName}` : '';
+    document.getElementById('modalPcName').innerText = `Station: ${pc.name}${codeNameStr}`;
+
     const swContainer = document.getElementById('modalSoftwareTags');
     swContainer.innerHTML = '';
     if (pc.installedSoftware && pc.installedSoftware.length > 0) {

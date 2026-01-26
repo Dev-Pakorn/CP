@@ -1,4 +1,4 @@
-/* mock-db.js (Final Fix: Consistent External User Data) */
+/* mock-db.js (Final Clean: Removed CodeName) */
 
 // ==========================================
 // 1. MOCK DATA (ข้อมูลจำลอง)
@@ -26,7 +26,6 @@ const DEFAULT_BOOKINGS = [
     },
     { 
         id: 'b2', 
-        // ✅ แก้ไข: ใช้ ID และชื่อ ให้ตรงกับ MOCK_REG_DB
         userId: '67200000', userName: 'ผู้มาเยือน', 
         pcId: '5', pcName: 'PC-05', 
         date: new Date().toLocaleDateString('en-CA'), 
@@ -49,7 +48,7 @@ const DEFAULT_SOFTWARE = [
     { id: "s9", name: "Canva", version: "Pro", type: "Software" }
 ];
 
-// 1.3 ข้อมูลเครื่องคอมพิวเตอร์
+// 1.3 ข้อมูลเครื่องคอมพิวเตอร์ (❌ ลบ CodeName ออกแล้ว)
 const DEFAULT_PCS = [
     { 
         id: "1", name: "PC-01", status: "available", 
@@ -113,7 +112,6 @@ const MOCK_REG_DB = {
     "66100000": { prefix: "นาย", name: "เอกภพ มั่นคง", faculty: "คณะศิลปศาสตร์", department: "ภาษาไทย", year: "4", level: "ปริญญาตรี", role: "student" },
     "66100001": { prefix: "นางสาว", name: "ดวงดาว ไกลโพ้น", faculty: "คณะศึกษาศาสตร์", department: "คณิตศาสตร์", year: "1", level: "ปริญญาตรี", role: "student" },
     
-    // ✅ แก้ไข: เปลี่ยน level จาก "บุคคลทั่วไป" เป็น "บุคคลภายนอก" ให้เหมือน faculty เพื่อแก้ปัญหากราฟแยกแท่ง
     "67200000": { prefix: "นาย", name: "ผู้มาเยือน", faculty: "บุคคลภายนอก", department: "-", year: "-", level: "บุคคลภายนอก", role: "external" },
     
     "ubu_staff": { prefix: "ดร.", name: "ใจดี มีวิชา", faculty: "สำนักคอมพิวเตอร์และเครือข่าย", department: "-", year: "-", level: "บุคลากร", role: "staff" },
@@ -227,7 +225,7 @@ const DEFAULT_LOGS = generateRichMockLogs(500);
 
 
 // ==========================================
-// 2. DATABASE LOGIC
+// 2. DATABASE LOGIC (❌ ลบ Logic Auto Sync CodeName ออกแล้ว)
 // ==========================================
 
 const DB = {
@@ -240,6 +238,7 @@ const DB = {
     getAiTimeSlots: () => DB.getData('ck_ai_slots', DEFAULT_AI_SLOTS),
     saveAiTimeSlots: (data) => DB.setData('ck_ai_slots', data),
 
+    // ใช้แบบธรรมดาเหมือนเดิม
     getPCs: () => DB.getData('ck_pcs', DEFAULT_PCS),
     savePCs: (data) => DB.setData('ck_pcs', data),
     
