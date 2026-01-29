@@ -88,7 +88,11 @@ function drawDistributionBarChart(data) {
     });
 }
 
-function drawDailyTrendLineChart(dailyData, timeMode) {
+// admin-report.js
+
+/* admin-report.js */
+
+function drawDailyTrendLineChart(dailyData, timeMode, isSingleYear = false) {
     const ctx = document.getElementById('dailyTrendLineChart');
     if (!ctx) return;
     if (dailyTrendLineInstance) dailyTrendLineInstance.destroy();
@@ -97,10 +101,27 @@ function drawDailyTrendLineChart(dailyData, timeMode) {
     let dataPoints = [];
 
     if (timeMode === 'yearly') {
-        labels = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-        dataPoints = labels.map(month => dailyData[month] || 0);
+        if (isSingleYear) {
+            // ✅ กรณีเลือกปีเดียว: โชว์รายเดือน (ม.ค. - ธ.ค.)
+            labels = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+            dataPoints = labels.map(month => dailyData[month] || 0);
+        } else {
+            // ✅ กรณีเลือกหลายปี: วนลูปสร้างปีให้ครบช่วง (แม้ไม่มีข้อมูลก็ต้องขึ้น 0)
+            const yStart = parseInt(document.getElementById('yearStart').value); // ค่าปี ค.ศ. (เช่น 2024)
+            const yEnd = parseInt(document.getElementById('yearEnd').value);     // ค่าปี ค.ศ. (เช่น 2026)
+
+            // วนลูปตั้งแต่ปีเริ่มต้น ถึง ปีสิ้นสุด
+            for (let y = yStart; y <= yEnd; y++) {
+                const bYear = y + 543; // แปลงเป็น พ.ศ.
+                const key = bYear.toString();
+                
+                labels.push(key); // แกน X: 2567, 2568, 2569
+                dataPoints.push(dailyData[key] || 0); // แกน Y: ถ้าไม่มีข้อมูลให้ใส่ 0
+            }
+        }
     } 
     else if (timeMode === 'daily' || timeMode === 'monthly') {
+        // ... (ส่วนรายวันและรายเดือน ใช้โค้ดเดิมได้เลยครับ)
         let startD, endD;
         if (timeMode === 'daily') {
             startD = new Date(document.getElementById('dateStart').value);
@@ -139,7 +160,7 @@ function drawDailyTrendLineChart(dailyData, timeMode) {
                 backgroundColor: 'rgba(29, 115, 242, 0.1)',
                 borderWidth: 3,
                 fill: true,
-                tension: 0,
+                tension: 0, 
                 pointBackgroundColor: '#1d73f2',
                 pointRadius: 4
             }]
@@ -307,6 +328,8 @@ function generateReport() {
     applyFilters(); 
 }
 
+// admin-report.js
+
 function applyFilters() { 
     // 1. ดึงข้อมูล Log ทั้งหมดที่สิ้นสุดการใช้งานแล้ว
     const allStatsLogs = allLogs.filter(l => l.action === 'END_SESSION');
@@ -317,6 +340,14 @@ function applyFilters() {
     const timeMode = document.getElementById('timeFilterType').value;
     const selectedFaculties = getCheckedValues('studentFacultyList');
     const selectedOrgs = getCheckedValues('staffOrgList');
+
+    // ✅ เพิ่มตัวเช็คว่าเลือกปีเดียวหรือไม่
+    let isSingleYear = false;
+    if (timeMode === 'yearly') {
+        const yStart = document.getElementById('yearStart').value;
+        const yEnd = document.getElementById('yearEnd').value;
+        if (yStart === yEnd) isSingleYear = true;
+    }
 
     // 3. กรองข้อมูลตามเงื่อนไข
     let filteredLogs = allStatsLogs.filter(log => {
@@ -346,15 +377,11 @@ function applyFilters() {
 
         const role = (log.userRole || '').toLowerCase();
         
-        // กรองตาม User Type
         if (userMode === 'student') {
             if (role !== 'student') return false;
-            
-            // 1. ตรวจสอบคณะ
             const isFacultyMatch = selectedFaculties.some(fac => fac.trim() === logFaculty);
             if (!isFacultyMatch) return false;
 
-            // 2. ตรวจสอบ ระดับการศึกษา และ ชั้นปี
             const filterLevel = document.getElementById('filterEduLevel').value;
             const filterYear = document.getElementById('filterStudentYear').value;
             const userLevel = (log.userLevel || "").toString().trim();
@@ -382,32 +409,33 @@ function applyFilters() {
         return true;
     });
 
-    // 4. เตรียมข้อมูลกราฟ (แก้ไขจุดนี้ครับ ✅)
+    // 4. เตรียมข้อมูลกราฟ
     let distributionData = {};
     const timeChartData = {};
 
     filteredLogs.forEach(l => {
-        let distLabel = (l.userFaculty || 'ไม่ระบุ').trim();
-
-        // ✅ FIX: รวมกลุ่มคำที่ความหมายเหมือนกัน ให้เป็น "บุคคลภายนอก"
-        if (distLabel === 'บุคคลทั่วไป' || distLabel === 'Guest' || distLabel === '-') {
-            distLabel = 'บุคคลภายนอก';
-        }
-
+        let distLabel = l.userFaculty || 'ไม่ระบุ';
         if (userMode === 'all') {
             if (l.userRole === 'student') distLabel = "นักศึกษา";
             else if (l.userRole === 'staff' || l.userRole === 'admin') distLabel = "บุคลากร";
             else distLabel = "บุคคลภายนอก";
         }
-        
         distributionData[distLabel] = (distributionData[distLabel] || 0) + 1;
 
         const dateObj = new Date(l.startTime || l.timestamp);
         let timeLabel;
+
+        // ✅ Logic การสร้าง Label ตามเงื่อนไขใหม่
         if (timeMode === 'daily' || timeMode === 'monthly') {
             timeLabel = dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
         } else if (timeMode === 'yearly') {
-            timeLabel = dateObj.toLocaleDateString('th-TH', { month: 'long' });
+            if (isSingleYear) {
+                // ถ้าปีเดียว ให้โชว์เป็นชื่อเดือน
+                timeLabel = dateObj.toLocaleDateString('th-TH', { month: 'long' });
+            } else {
+                // ถ้าหลายปี ให้โชว์เป็นเลขปี พ.ศ.
+                timeLabel = (dateObj.getFullYear() + 543).toString();
+            }
         }
         timeChartData[timeLabel] = (timeChartData[timeLabel] || 0) + 1;
     });
@@ -415,7 +443,9 @@ function applyFilters() {
     // 5. อัปเดตส่วนต่าง ๆ
     updateSummaryCards(filteredLogs);
     drawDistributionBarChart(distributionData);
-    drawDailyTrendLineChart(timeChartData, timeMode);
+    
+    // ✅ ส่งตัวแปร isSingleYear ไปด้วย
+    drawDailyTrendLineChart(timeChartData, timeMode, isSingleYear);
 
     const globalChartData = processLogsForCharts(filteredLogs, timeMode);
     if (topSoftwareChartInstance) topSoftwareChartInstance.destroy();

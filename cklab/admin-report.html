@@ -52,7 +52,7 @@
                         </button>
 
                         <button onclick="exportAllLogs()" class="btn btn-primary shadow-sm">
-                            <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> Export 
+                            <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> Export All
                         </button>
 
                         <button onclick="window.print()" class="btn btn-secondary shadow-sm">
@@ -246,14 +246,16 @@
                                 <option value="yearly">รายปี</option>
                             </select>
                         </div>
+
                         <div class="col-md-6 time-input-group" id="input-daily">
                             <div class="input-group">
-                                <span class="input-group-text bg-white">จาก</span>
+                                <span class="input-group-text bg-white">วันที่</span>
                                 <input type="date" id="dateStart" class="form-control">
                                 <span class="input-group-text bg-white">ถึง</span>
                                 <input type="date" id="dateEnd" class="form-control">
                             </div>
                         </div>
+
                         <div class="col-md-6 time-input-group d-none" id="input-monthly">
                             <div class="input-group">
                                 <span class="input-group-text bg-white">เดือน</span>
@@ -262,6 +264,7 @@
                                 <input type="month" id="monthEnd" class="form-control">
                             </div>
                         </div>
+
                         <div class="col-md-6 time-input-group d-none" id="input-yearly">
                             <div class="input-group">
                                 <span class="input-group-text bg-white">ปี พ.ศ.</span>
@@ -270,6 +273,7 @@
                                 <select id="yearEnd" class="form-select"></select>
                             </div>
                         </div>
+
                         <div class="col-md-3">
                             <button onclick="generateReport()" class="btn btn-primary w-100 fw-bold shadow-sm">
                                 <i class="bi bi-search me-2"></i> ประมวลผล
